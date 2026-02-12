@@ -1,0 +1,17 @@
+# Files to ignore during Vercel deployment
+
+# CSV data
+*.csv
+studentcheck01.csv
+
+# Database credentials
+supabase-db
+
+# Local env file (use Vercel dashboard for env vars)
+.env.local
+.env*.local
+
+# Documentation
+DATABASE_SETUP.txt
+SETUP.md
+VERCEL_DEPLOYMENT.md
