@@ -1,19 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Home, Download, FileText, AlertTriangle, Eye, Users, Filter } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { StudentAnalytics } from '@/lib/types';
-
-// Extend jsPDF type for autoTable
-declare module 'jspdf' {
-    interface jsPDF {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        autoTable: (options: Record<string, any>) => jsPDF;
-    }
-}
+import { SARABUN_FONT_BASE64 } from '@/lib/sarabun-font';
 
 function getRiskLabel(level: string): string {
     const labels: Record<string, string> = {
@@ -25,71 +18,18 @@ function getRiskLabel(level: string): string {
     return labels[level] || level;
 }
 
-// Fetch and cache Sarabun font as base64
-let cachedFontBase64: string | null = null;
-
-async function loadSarabunFont(): Promise<string> {
-    if (cachedFontBase64) return cachedFontBase64;
-
-    // Fetch Sarabun-Regular.ttf from Google Fonts GitHub
-    const res = await fetch(
-        'https://cdn.jsdelivr.net/gh/nicedoc/thai-fonts@main/fonts/Sarabun/Sarabun-Regular.ttf'
-    );
-
-    if (!res.ok) {
-        // Fallback: try another CDN
-        const res2 = await fetch(
-            'https://cdn.jsdelivr.net/gh/nicedoc/thai-fonts/fonts/Sarabun/Sarabun-Regular.ttf'
-        );
-        if (!res2.ok) throw new Error('Failed to load Sarabun font');
-        const buffer = await res2.arrayBuffer();
-        cachedFontBase64 = arrayBufferToBase64(buffer);
-        return cachedFontBase64;
-    }
-
-    const buffer = await res.arrayBuffer();
-    cachedFontBase64 = arrayBufferToBase64(buffer);
-    return cachedFontBase64;
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
-
 export default function ReportsPage() {
     const [students, setStudents] = useState<StudentAnalytics[]>([]);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
-    const [fontLoading, setFontLoading] = useState(false);
-    const [fontLoaded, setFontLoaded] = useState(false);
     const [stats, setStats] = useState<{
         students: { total: number; critical: number; monitor: number; followUp: number; normal: number };
     } | null>(null);
-    const fontRef = useRef<string | null>(null);
 
     useEffect(() => {
-        Promise.all([fetchStudents(), fetchStats()]);
-        // Preload font
-        preloadFont();
+        fetchStudents();
+        fetchStats();
     }, []);
-
-    async function preloadFont() {
-        setFontLoading(true);
-        try {
-            const base64 = await loadSarabunFont();
-            fontRef.current = base64;
-            setFontLoaded(true);
-        } catch (error) {
-            console.error('Failed to preload font:', error);
-        } finally {
-            setFontLoading(false);
-        }
-    }
 
     async function fetchStudents() {
         try {
@@ -113,30 +53,16 @@ export default function ReportsPage() {
         }
     }
 
-    function setupThaiFont(doc: jsPDF) {
-        if (fontRef.current) {
-            doc.addFileToVFS('Sarabun-Regular.ttf', fontRef.current);
-            doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
-            doc.setFont('Sarabun');
-        }
+    function setupThaiFont(doc: jsPDF): void {
+        doc.addFileToVFS('Sarabun-Regular.ttf', SARABUN_FONT_BASE64);
+        doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
+        doc.setFont('Sarabun');
     }
 
     async function generatePDF(filterLevel: string = 'all') {
         setGenerating(true);
 
         try {
-            // Ensure font is loaded
-            if (!fontRef.current) {
-                try {
-                    const base64 = await loadSarabunFont();
-                    fontRef.current = base64;
-                    setFontLoaded(true);
-                } catch {
-                    // Proceed without Thai font
-                    console.warn('Could not load Thai font, proceeding without it');
-                }
-            }
-
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
             const now = new Date();
@@ -169,8 +95,7 @@ export default function ReportsPage() {
                 doc.setTextColor(30, 58, 138);
                 doc.text('สรุปภาพรวม', 14, yPos + 5);
 
-                const font = fontRef.current ? 'Sarabun' : 'helvetica';
-                doc.autoTable({
+                autoTable(doc, {
                     startY: yPos + 8,
                     head: [['ประเภท', 'จำนวน (คน)']],
                     body: [
@@ -181,8 +106,8 @@ export default function ReportsPage() {
                         ['ปกติ (ขาด < 10%)', String(stats.students.normal)],
                     ],
                     theme: 'grid',
-                    headStyles: { fillColor: [30, 58, 138], fontSize: 10, font },
-                    bodyStyles: { fontSize: 9, font },
+                    headStyles: { fillColor: [30, 58, 138], fontSize: 10, font: 'Sarabun' },
+                    bodyStyles: { fontSize: 9, font: 'Sarabun' },
                     columnStyles: {
                         0: { cellWidth: 80 },
                         1: { cellWidth: 40, halign: 'center' as const }
@@ -198,7 +123,7 @@ export default function ReportsPage() {
 
             if (filteredStudents.length > 0) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const startY = (doc as any).lastAutoTable?.finalY + 15 || 90;
+                const startY = ((doc as any).lastAutoTable?.finalY || 90) + 15;
 
                 doc.setFontSize(14);
                 doc.setTextColor(30, 58, 138);
@@ -207,7 +132,6 @@ export default function ReportsPage() {
                     : `รายชื่อนักศึกษาระดับ${getRiskLabel(filterLevel)}`;
                 doc.text(title, 14, startY);
 
-                const font = fontRef.current ? 'Sarabun' : 'helvetica';
                 const tableData = filteredStudents.map((s, idx) => [
                     String(idx + 1),
                     s.student_code,
@@ -218,13 +142,13 @@ export default function ReportsPage() {
                     String(s.courses_at_risk)
                 ]);
 
-                doc.autoTable({
+                autoTable(doc, {
                     startY: startY + 4,
                     head: [['#', 'รหัสนักศึกษา', 'วิชา', '% มาเรียน', '% ขาด', 'ระดับ', 'วิชาเสี่ยง']],
                     body: tableData,
                     theme: 'striped',
-                    headStyles: { fillColor: [220, 38, 38], fontSize: 8, font },
-                    bodyStyles: { fontSize: 8, font },
+                    headStyles: { fillColor: [220, 38, 38], fontSize: 8, font: 'Sarabun' },
+                    bodyStyles: { fontSize: 8, font: 'Sarabun' },
                     columnStyles: {
                         0: { cellWidth: 10, halign: 'center' as const },
                         1: { cellWidth: 35 },
@@ -257,6 +181,7 @@ export default function ReportsPage() {
             const pageCount = doc.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
+                doc.setFont('Sarabun');
                 doc.setFontSize(8);
                 doc.setTextColor(150, 150, 150);
                 doc.text(`หน้า ${i} จาก ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
@@ -300,18 +225,6 @@ export default function ReportsPage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* Font Status */}
-                        {fontLoading && (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center text-sm text-yellow-700">
-                                กำลังโหลดฟอนต์ภาษาไทย (Sarabun)...
-                            </div>
-                        )}
-                        {fontLoaded && (
-                            <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center text-sm text-green-700">
-                                ✅ ฟอนต์ภาษาไทย (Sarabun) พร้อมใช้งาน
-                            </div>
-                        )}
-
                         {/* Stats Summary */}
                         {stats && (
                             <div className="bg-white rounded-xl shadow-md p-6">
