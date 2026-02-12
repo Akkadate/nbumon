@@ -56,6 +56,7 @@ export default function ReportsPage() {
     function setupThaiFont(doc: jsPDF): void {
         doc.addFileToVFS('Sarabun-Regular.ttf', SARABUN_FONT_BASE64);
         doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
+        doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'bold');
         doc.setFont('Sarabun');
     }
 
