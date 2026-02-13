@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, BookOpen, AlertTriangle, Home, TrendingDown, BarChart3, FileText, Info, GraduationCap, Activity, ChevronRight, Shield } from 'lucide-react';
+import { Users, BookOpen, AlertTriangle, Home, TrendingDown, BarChart3, FileText, Info, GraduationCap, Activity, ChevronRight, Shield, AlertOctagon } from 'lucide-react';
 
 interface Stats {
     students: {
@@ -253,6 +253,19 @@ export default function DashboardPage() {
                                 <p className="text-xs text-gray-500">ดูรายละเอียดนักศึกษาแต่ละคน</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/consecutive-absence" className="group">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-orange-200 transition-all flex items-center gap-4">
+                            <div className="bg-gradient-to-br from-orange-500 to-red-500 p-3 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                                <AlertOctagon className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-bold text-gray-900">ขาดเรียนติดต่อกัน</h3>
+                                <p className="text-xs text-gray-500">ขาดล่าสุด 3 ครั้งติดกันขึ้นไป</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-orange-500 transition-colors" />
                         </div>
                     </Link>
 
