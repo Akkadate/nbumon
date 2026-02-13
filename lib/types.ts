@@ -23,6 +23,18 @@ export interface AttendanceRecord {
   attendance_rate: number;
   absence_rate: number;
   created_at: string;
+  // Enhanced fields (Phase 3)
+  student_name?: string | null;
+  faculty?: string | null;
+  department?: string | null;
+  year_level?: number | null;
+  advisor_name?: string | null;
+  course_name?: string | null;
+  instructor?: string | null;
+  acad_year?: number | null;
+  semester?: number | null;
+  gpa?: number | null;
+  course_grade?: string | null;
 }
 
 export interface StudentAnalytics {
@@ -37,6 +49,13 @@ export interface StudentAnalytics {
   risk_level: RiskLevel;
   courses_at_risk: number;
   last_updated: string;
+  // Enhanced fields (Phase 3)
+  student_name?: string | null;
+  faculty?: string | null;
+  department?: string | null;
+  year_level?: number | null;
+  advisor_name?: string | null;
+  gpa?: number | null;
 }
 
 export interface CourseAnalytics {
@@ -51,6 +70,11 @@ export interface CourseAnalytics {
   has_no_checks: boolean;
   total_sessions: number;
   last_updated: string;
+  // Enhanced fields (Phase 3)
+  course_name?: string | null;
+  instructor?: string | null;
+  acad_year?: number | null;
+  semester?: number | null;
 }
 
 export interface ParsedAttendance {

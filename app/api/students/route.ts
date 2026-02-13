@@ -5,6 +5,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const riskLevel = searchParams.get('riskLevel');
     const minAbsenceRate = searchParams.get('minAbsenceRate');
+    const faculty = searchParams.get('faculty');
+    const yearLevel = searchParams.get('yearLevel');
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -21,6 +23,14 @@ export async function GET(request: NextRequest) {
 
         if (minAbsenceRate) {
             query = query.gte('avg_absence_rate', parseFloat(minAbsenceRate));
+        }
+
+        if (faculty && faculty !== 'all') {
+            query = query.eq('faculty', faculty);
+        }
+
+        if (yearLevel && yearLevel !== 'all') {
+            query = query.eq('year_level', parseInt(yearLevel));
         }
 
         // Apply pagination

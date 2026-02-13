@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Home, BarChart3, TrendingUp } from 'lucide-react';
+import { Home, BarChart3, TrendingUp, GraduationCap } from 'lucide-react';
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, Legend, ResponsiveContainer
+    Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, ZAxis
 } from 'recharts';
 
 interface ChartData {
     riskDistribution: Array<{ name: string; value: number; color: string }>;
     absenceDistribution: Array<{ range: string; count: number }>;
-    topAbsentCourses: Array<{ course: string; studyCode: string; highAbsence: number; totalStudents: number; avgAttendance: number }>;
+    topAbsentCourses: Array<{ course: string; courseName?: string; instructor?: string; studyCode: string; highAbsence: number; totalStudents: number; avgAttendance: number }>;
+    facultyDistribution?: Array<{ faculty: string; total: number; critical: number; monitor: number; followUp: number; normal: number }>;
+    gpaAbsenceScatter?: Array<{ gpa: number; absence: number; risk: string; faculty: string }>;
+    yearDistribution?: Array<{ year: string; total: number; critical: number; monitor: number; followUp: number; normal: number }>;
     summary: { totalStudents: number; avgAbsenceRate: number; avgAttendanceRate: number };
 }
 
@@ -32,6 +35,13 @@ function renderCustomizedLabel(props: any) {
         </text>
     );
 }
+
+const RISK_COLORS: Record<string, string> = {
+    critical: '#dc2626',
+    monitor: '#ea580c',
+    follow_up: '#2563eb',
+    normal: '#16a34a',
+};
 
 export default function ChartsPage() {
     const [data, setData] = useState<ChartData | null>(null);
@@ -160,7 +170,92 @@ export default function ChartsPage() {
                             </div>
                         </div>
 
-                        {/* Row 2: Top Absent Courses */}
+                        {/* Row 2: Faculty Risk Distribution (NEW) */}
+                        {data.facultyDistribution && data.facultyDistribution.length > 0 && (
+                            <div className="bg-white rounded-xl shadow-md p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <GraduationCap className="w-5 h-5 text-indigo-600" />
+                                    การกระจายความเสี่ยงตามคณะ
+                                </h2>
+                                <ResponsiveContainer width="100%" height={Math.max(300, data.facultyDistribution.length * 45)}>
+                                    <BarChart data={data.facultyDistribution} layout="vertical" margin={{ left: 30 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis type="number" label={{ value: 'จำนวนนักศึกษา', position: 'insideBottom', offset: -5, style: { fontSize: 12 } }} />
+                                        <YAxis type="category" dataKey="faculty" tick={{ fontSize: 10 }} width={160} />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Bar dataKey="critical" name="วิกฤต" stackId="risk" fill="#dc2626" />
+                                        <Bar dataKey="monitor" name="เฝ้าระวัง" stackId="risk" fill="#ea580c" />
+                                        <Bar dataKey="followUp" name="ติดตาม" stackId="risk" fill="#2563eb" />
+                                        <Bar dataKey="normal" name="ปกติ" stackId="risk" fill="#16a34a" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+
+                        {/* Row 3: Year Level + GPA Scatter */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Year Level Distribution (NEW) */}
+                            {data.yearDistribution && data.yearDistribution.length > 0 && (
+                                <div className="bg-white rounded-xl shadow-md p-6">
+                                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <BarChart3 className="w-5 h-5 text-teal-600" />
+                                        การกระจายความเสี่ยงตามชั้นปี
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={350}>
+                                        <BarChart data={data.yearDistribution}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+                                            <YAxis label={{ value: 'จำนวน (คน)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }} />
+                                            <Tooltip />
+                                            <Legend />
+                                            <Bar dataKey="critical" name="วิกฤต" stackId="risk" fill="#dc2626" />
+                                            <Bar dataKey="monitor" name="เฝ้าระวัง" stackId="risk" fill="#ea580c" />
+                                            <Bar dataKey="followUp" name="ติดตาม" stackId="risk" fill="#2563eb" />
+                                            <Bar dataKey="normal" name="ปกติ" stackId="risk" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {/* GPA vs Absence Scatter (NEW) */}
+                            {data.gpaAbsenceScatter && data.gpaAbsenceScatter.length > 0 && (
+                                <div className="bg-white rounded-xl shadow-md p-6">
+                                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <TrendingUp className="w-5 h-5 text-amber-600" />
+                                        ความสัมพันธ์ GPA กับ % ขาดเรียน
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={350}>
+                                        <ScatterChart margin={{ bottom: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis type="number" dataKey="gpa" name="GPA" domain={[0, 4]} tick={{ fontSize: 11 }}
+                                                label={{ value: 'GPA', position: 'insideBottom', offset: -5, style: { fontSize: 12 } }} />
+                                            <YAxis type="number" dataKey="absence" name="% ขาดเรียน" tick={{ fontSize: 11 }}
+                                                label={{ value: '% ขาดเรียน', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }} />
+                                            <ZAxis range={[30, 30]} />
+                                            <Tooltip
+                                                formatter={(value: any, name: any) => {
+                                                    if (name === 'GPA') return [value, 'GPA'];
+                                                    if (name === '% ขาดเรียน') return [`${value}%`, '% ขาดเรียน'];
+                                                    return [value, name];
+                                                }}
+                                            />
+                                            <Scatter
+                                                data={data.gpaAbsenceScatter}
+                                                fill="#6366f1"
+                                            >
+                                                {data.gpaAbsenceScatter.map((entry, index) => (
+                                                    <Cell key={`scatter-${index}`} fill={RISK_COLORS[entry.risk] || '#6366f1'} opacity={0.6} />
+                                                ))}
+                                            </Scatter>
+                                        </ScatterChart>
+                                    </ResponsiveContainer>
+                                    <p className="text-xs text-gray-400 text-center mt-2">สีจุด: แดง=วิกฤต, ส้ม=เฝ้าระวัง, น้ำเงิน=ติดตาม, เขียว=ปกติ</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Row 4: Top Absent Courses */}
                         <div className="bg-white rounded-xl shadow-md p-6">
                             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-red-600" />
@@ -177,6 +272,11 @@ export default function ChartsPage() {
                                                 if (name === 'highAbsence') return [`${value} คน`, 'ขาดมาก'];
                                                 if (name === 'totalStudents') return [`${value} คน`, 'ทั้งหมด'];
                                                 return [value, name];
+                                            }}
+                                            labelFormatter={(label: any) => {
+                                                const course = data.topAbsentCourses.find(c => c.course === label);
+                                                if (course?.courseName) return `${label}\n${course.courseName}`;
+                                                return label;
                                             }}
                                         />
                                         <Legend formatter={(value: string) => value === 'highAbsence' ? 'ขาดมาก (≥30%)' : 'ทั้งหมด'} />

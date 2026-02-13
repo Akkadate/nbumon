@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
     try {
         // Get statistics for dashboard
         const [studentsResult, coursesResult, attendanceResult] = await Promise.all([
-            supabase.from('student_analytics').select('risk_level, id').select(),
+            supabase.from('student_analytics').select('risk_level, id, faculty').select(),
             supabase.from('course_analytics').select('has_no_checks, students_high_absence').select(),
             supabase.from('attendance_records').select('id').select()
         ]);
@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
         const monitorStudents = students.filter(s => s.risk_level === 'monitor').length;
         const followUpStudents = students.filter(s => s.risk_level === 'follow_up').length;
         const totalStudents = students.length;
+
+        // Count unique faculties
+        const uniqueFaculties = new Set(students.map(s => s.faculty).filter(Boolean));
 
         // Count courses
         const courses = coursesResult.data || [];
@@ -41,6 +44,10 @@ export async function GET(request: NextRequest) {
             },
             records: {
                 total: totalRecords
+            },
+            faculties: {
+                total: uniqueFaculties.size,
+                list: Array.from(uniqueFaculties).sort()
             }
         });
     } catch (error) {

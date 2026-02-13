@@ -37,10 +37,15 @@ export default function CoursesPage() {
         }
     }
 
-    const filteredCourses = courses.filter(course =>
-        course.course_code.toLowerCase().includes(search.toLowerCase()) ||
-        course.section.toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredCourses = courses.filter(course => {
+        const searchLower = search.toLowerCase();
+        return (
+            course.course_code.toLowerCase().includes(searchLower) ||
+            course.section.toLowerCase().includes(searchLower) ||
+            (course.course_name && course.course_name.toLowerCase().includes(searchLower)) ||
+            (course.instructor && course.instructor.toLowerCase().includes(searchLower))
+        );
+    });
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -76,7 +81,7 @@ export default function CoursesPage() {
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                 <input
                                     type="text"
-                                    placeholder="ค้นหารหัสวิชา หรือ กลุ่มเรียน..."
+                                    placeholder="ค้นหารหัสวิชา ชื่อวิชา อาจารย์..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -89,8 +94,8 @@ export default function CoursesPage() {
                             <button
                                 onClick={() => setFilter('all')}
                                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'all'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 ทั้งหมด
@@ -98,8 +103,8 @@ export default function CoursesPage() {
                             <button
                                 onClick={() => setFilter('no-checks')}
                                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'no-checks'
-                                        ? 'bg-yellow-600 text-white'
-                                        : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                                    ? 'bg-yellow-600 text-white'
+                                    : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
                                     }`}
                             >
                                 ไม่มีการเช็คชื่อ
@@ -107,8 +112,8 @@ export default function CoursesPage() {
                             <button
                                 onClick={() => setFilter('high-absence')}
                                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === 'high-absence'
-                                        ? 'bg-red-600 text-white'
-                                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-red-50 text-red-600 hover:bg-red-100'
                                     }`}
                             >
                                 ขาดเรียนมาก
@@ -133,25 +138,28 @@ export default function CoursesPage() {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            รหัสวิชา
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            รายวิชา
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            กลุ่มเรียน
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            อาจารย์ผู้สอน
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            กลุ่ม
+                                        </th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             ประเภท
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            นักศึกษา
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            นศ.
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             ขาดมาก
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            % มาเรียนเฉลี่ย
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            % มาเรียน
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             สถานะ
                                         </th>
                                     </tr>
@@ -159,41 +167,42 @@ export default function CoursesPage() {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {filteredCourses.map((course) => (
                                         <tr key={course.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">
                                                     {course.course_code}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
-                                                    Rev. {course.revision_code}
+                                                {course.course_name && (
+                                                    <div className="text-xs text-gray-600 max-w-[200px] truncate" title={course.course_name}>
+                                                        {course.course_name}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <div className="text-sm text-gray-700 max-w-[150px] truncate" title={course.instructor || ''}>
+                                                    {course.instructor || '-'}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
                                                 <div className="text-sm text-gray-900">{course.section}</div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
                                                 <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded">
                                                     {getStudyTypeLabel(course.study_code as 'C' | 'L')}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    <BookOpen className="w-4 h-4 text-gray-400 mr-2" />
-                                                    <span className="text-sm text-gray-900">{course.total_students}</span>
-                                                </div>
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                                                <span className="text-sm text-gray-900">{course.total_students}</span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
                                                 {course.students_high_absence > 0 ? (
-                                                    <div className="flex items-center">
-                                                        <AlertTriangle className="w-4 h-4 text-red-500 mr-1" />
-                                                        <span className="text-sm font-medium text-red-600">
-                                                            {course.students_high_absence} คน
-                                                        </span>
-                                                    </div>
+                                                    <span className="text-sm font-medium text-red-600">
+                                                        {course.students_high_absence} คน
+                                                    </span>
                                                 ) : (
                                                     <span className="text-sm text-green-600">-</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap">
                                                 <div className="flex items-center">
                                                     <div className="flex-shrink-0 w-16 h-2 bg-gray-200 rounded-full mr-2">
                                                         <div
@@ -206,17 +215,17 @@ export default function CoursesPage() {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-4 py-3 whitespace-nowrap text-center">
                                                 {course.has_no_checks ? (
-                                                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                                                         ไม่มีการเช็ค
                                                     </span>
                                                 ) : course.students_high_absence >= 5 ? (
-                                                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
                                                         ต้องติดตาม
                                                     </span>
                                                 ) : (
-                                                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                                         ปกติ
                                                     </span>
                                                 )}

@@ -136,8 +136,9 @@ export default function ReportsPage() {
                 const tableData = filteredStudents.map((s, idx) => [
                     String(idx + 1),
                     s.student_code,
-                    String(s.total_courses),
-                    `${s.avg_attendance_rate.toFixed(1)}%`,
+                    s.student_name || '-',
+                    s.faculty || '-',
+                    s.gpa != null ? s.gpa.toFixed(2) : '-',
                     `${s.avg_absence_rate.toFixed(1)}%`,
                     getRiskLabel(s.risk_level),
                     String(s.courses_at_risk)
@@ -145,24 +146,25 @@ export default function ReportsPage() {
 
                 autoTable(doc, {
                     startY: startY + 4,
-                    head: [['#', 'รหัสนักศึกษา', 'วิชา', '% มาเรียน', '% ขาด', 'ระดับ', 'วิชาเสี่ยง']],
+                    head: [['#', 'รหัส', 'ชื่อ', 'คณะ', 'GPA', '% ขาด', 'ระดับ', 'วิชาเสี่ยง']],
                     body: tableData,
                     theme: 'striped',
-                    headStyles: { fillColor: [220, 38, 38], fontSize: 8, font: 'Sarabun' },
-                    bodyStyles: { fontSize: 8, font: 'Sarabun' },
+                    headStyles: { fillColor: [220, 38, 38], fontSize: 7, font: 'Sarabun' },
+                    bodyStyles: { fontSize: 7, font: 'Sarabun' },
                     columnStyles: {
-                        0: { cellWidth: 10, halign: 'center' as const },
-                        1: { cellWidth: 35 },
-                        2: { cellWidth: 15, halign: 'center' as const },
-                        3: { cellWidth: 25, halign: 'center' as const },
-                        4: { cellWidth: 25, halign: 'center' as const },
-                        5: { cellWidth: 30, halign: 'center' as const },
-                        6: { cellWidth: 25, halign: 'center' as const }
+                        0: { cellWidth: 8, halign: 'center' as const },
+                        1: { cellWidth: 22 },
+                        2: { cellWidth: 35 },
+                        3: { cellWidth: 40 },
+                        4: { cellWidth: 14, halign: 'center' as const },
+                        5: { cellWidth: 18, halign: 'center' as const },
+                        6: { cellWidth: 20, halign: 'center' as const },
+                        7: { cellWidth: 18, halign: 'center' as const }
                     },
                     margin: { left: 14, right: 14 },
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     didParseCell: (data: any) => {
-                        if (data.section === 'body' && data.column.index === 5) {
+                        if (data.section === 'body' && data.column.index === 6) {
                             const risk = data.cell.raw;
                             if (risk === 'วิกฤต') {
                                 data.cell.styles.textColor = [220, 38, 38];
@@ -172,6 +174,13 @@ export default function ReportsPage() {
                                 data.cell.styles.fontStyle = 'bold';
                             } else if (risk === 'ติดตาม') {
                                 data.cell.styles.textColor = [37, 99, 235];
+                            }
+                        }
+                        // Highlight low GPA
+                        if (data.section === 'body' && data.column.index === 4) {
+                            const gpa = parseFloat(data.cell.raw);
+                            if (!isNaN(gpa) && gpa < 2.0) {
+                                data.cell.styles.textColor = [220, 38, 38];
                             }
                         }
                     }

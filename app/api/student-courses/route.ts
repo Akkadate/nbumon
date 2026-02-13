@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     try {
         const { data, error } = await supabase
             .from('attendance_records')
-            .select('course_code, revision_code, section, study_code, attendance_rate, absence_rate, present_count, absent_count, late_count, total_sessions')
+            .select('course_code, course_name, revision_code, section, study_code, instructor, attendance_rate, absence_rate, present_count, absent_count, late_count, total_sessions')
             .eq('student_code', studentCode)
             .gte('absence_rate', 20)
             .order('absence_rate', { ascending: false });

@@ -3,17 +3,17 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
     try {
-        // Get all student analytics for charts
+        // Get all student analytics for charts (with enhanced fields)
         const { data: students, error: studentsError } = await supabase
             .from('student_analytics')
-            .select('risk_level, avg_absence_rate, avg_attendance_rate, courses_at_risk, total_courses');
+            .select('risk_level, avg_absence_rate, avg_attendance_rate, courses_at_risk, total_courses, faculty, year_level, gpa');
 
         if (studentsError) throw studentsError;
 
-        // Get course analytics for top absent courses
+        // Get course analytics for top absent courses (with enhanced fields)
         const { data: courses, error: coursesError } = await supabase
             .from('course_analytics')
-            .select('course_code, section, study_code, total_students, students_high_absence, avg_attendance_rate, has_no_checks')
+            .select('course_code, course_name, section, study_code, instructor, total_students, students_high_absence, avg_attendance_rate, has_no_checks')
             .order('students_high_absence', { ascending: false })
             .limit(15);
 
@@ -52,6 +52,8 @@ export async function GET(request: NextRequest) {
             .slice(0, 10)
             .map(c => ({
                 course: `${c.course_code}-${c.section}`,
+                courseName: c.course_name || '',
+                instructor: c.instructor || '',
                 studyCode: c.study_code,
                 highAbsence: c.students_high_absence,
                 totalStudents: c.total_students,
@@ -65,11 +67,61 @@ export async function GET(request: NextRequest) {
             risk: s.risk_level
         }));
 
+        // 5. Faculty Risk Distribution (NEW)
+        const facultyMap = new Map<string, { total: number; critical: number; monitor: number; followUp: number; normal: number }>();
+        (students || []).forEach(s => {
+            const faculty = s.faculty || 'ไม่ระบุ';
+            if (!facultyMap.has(faculty)) {
+                facultyMap.set(faculty, { total: 0, critical: 0, monitor: 0, followUp: 0, normal: 0 });
+            }
+            const entry = facultyMap.get(faculty)!;
+            entry.total++;
+            if (s.risk_level === 'critical') entry.critical++;
+            else if (s.risk_level === 'monitor') entry.monitor++;
+            else if (s.risk_level === 'follow_up') entry.followUp++;
+            else entry.normal++;
+        });
+        const facultyDistribution = Array.from(facultyMap.entries())
+            .map(([faculty, data]) => ({ faculty, ...data }))
+            .sort((a, b) => (b.critical + b.monitor) - (a.critical + a.monitor));
+
+        // 6. GPA vs Absence Rate Scatter (NEW)
+        const gpaAbsenceScatter = (students || [])
+            .filter(s => s.gpa !== null && s.gpa !== undefined)
+            .map(s => ({
+                gpa: s.gpa,
+                absence: Math.round(s.avg_absence_rate * 10) / 10,
+                risk: s.risk_level,
+                faculty: s.faculty || 'ไม่ระบุ'
+            }));
+
+        // 7. Year Level Distribution (NEW)
+        const yearMap = new Map<number, { total: number; critical: number; monitor: number; followUp: number; normal: number }>();
+        (students || []).forEach(s => {
+            const year = s.year_level || 0;
+            if (!yearMap.has(year)) {
+                yearMap.set(year, { total: 0, critical: 0, monitor: 0, followUp: 0, normal: 0 });
+            }
+            const entry = yearMap.get(year)!;
+            entry.total++;
+            if (s.risk_level === 'critical') entry.critical++;
+            else if (s.risk_level === 'monitor') entry.monitor++;
+            else if (s.risk_level === 'follow_up') entry.followUp++;
+            else entry.normal++;
+        });
+        const yearDistribution = Array.from(yearMap.entries())
+            .filter(([year]) => year > 0)
+            .map(([year, data]) => ({ year: `ปี ${year}`, ...data }))
+            .sort((a, b) => parseInt(a.year.replace('ปี ', '')) - parseInt(b.year.replace('ปี ', '')));
+
         return NextResponse.json({
             riskDistribution,
             absenceDistribution,
             topAbsentCourses,
             attendanceScatter,
+            facultyDistribution,
+            gpaAbsenceScatter,
+            yearDistribution,
             summary: {
                 totalStudents: students?.length || 0,
                 avgAbsenceRate: students ? Math.round(students.reduce((s, st) => s + st.avg_absence_rate, 0) / students.length * 10) / 10 : 0,
