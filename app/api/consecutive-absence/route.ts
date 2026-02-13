@@ -42,8 +42,8 @@ function getConsecutiveTrailingAbsences(classCheckRaw: string): { count: number;
         }
     }
 
-    // Return last N statuses for display (up to 10)
-    const lastStatuses = actualEntries.slice(-Math.min(10, actualEntries.length));
+    // Return all statuses for full attendance display
+    const lastStatuses = actualEntries;
 
     return { count: consecutiveCount, lastStatuses };
 }

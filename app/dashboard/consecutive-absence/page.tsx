@@ -259,7 +259,7 @@ export default function ConsecutiveAbsencePage() {
 
                                                     {/* Attendance dots */}
                                                     <div className="bg-gray-50 rounded-lg p-3">
-                                                        <p className="text-[10px] text-gray-400 mb-2 uppercase tracking-wide">การเช็คชื่อล่าสุด →</p>
+                                                        <p className="text-[10px] text-gray-400 mb-2 uppercase tracking-wide">การเช็คชื่อทั้งหมด →</p>
                                                         <div className="flex items-center gap-1 flex-wrap">
                                                             {course.last_statuses.map((status, i) => (
                                                                 <StatusDot key={i} status={status} />
