@@ -392,7 +392,15 @@ export default function StudentsPage() {
                             ) : (
                                 <div className="space-y-4">
                                     <p className="text-sm text-gray-500 mb-4">
-                                        พบ <span className="font-semibold text-red-600">{modalCourses.length}</span> วิชาที่มีอัตราการขาดเรียน ≥ 20%
+                                        พบ <span className="font-semibold text-red-600">{modalCourses.length}</span> วิชาที่มีอัตราการขาดเรียนสูง
+                                        {modalStudent && (
+                                            <span className="ml-1">
+                                                ({modalStudent.risk_level === 'critical' ? 'ระดับวิกฤต ≥ 40%' :
+                                                    modalStudent.risk_level === 'monitor' ? 'ระดับเฝ้าระวัง 20-39%' :
+                                                        modalStudent.risk_level === 'follow_up' ? 'ระดับติดตาม 10-19%' :
+                                                            'ขาดเรียน ≥ 20%'})
+                                            </span>
+                                        )}
                                     </p>
 
                                     {modalCourses.map((course, idx) => (
