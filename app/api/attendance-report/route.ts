@@ -83,9 +83,23 @@ export async function GET(request: NextRequest) {
             }
         });
 
+        // Query course_analytics for official student counts
+        const { data: courseAnalytics } = await supabase
+            .from('course_analytics')
+            .select('course_code, section, study_code, total_students');
+
+        const analyticsMap = new Map<string, number>();
+        if (courseAnalytics) {
+            courseAnalytics.forEach(c => {
+                analyticsMap.set(`${c.course_code}|${c.section}|${c.study_code}`, c.total_students);
+            });
+        }
+
         // Calculate attendance % per session per course based on toggle
         const courseDetails = Array.from(courseMap.entries()).map(([, course]) => {
-            const totalStudents = course.students.size;
+            // Use total_students from analytics if available, otherwise fallback to counted unique students
+            const analyticsKey = `${course.course_code}|${course.section}|${course.study_code}`;
+            const totalStudents = analyticsMap.get(analyticsKey) || course.students.size;
 
             // Build all sessions starting from session 1
             const allSessionRates = course.sessionData.map((session, idx) => {
