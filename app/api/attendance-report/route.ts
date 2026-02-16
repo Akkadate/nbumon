@@ -179,15 +179,27 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        // 5. Get Overview Stats (need separate query for ALL data if we want correct overview)
-        // For efficiency, we can fetch pre-calculated faculty stats from a new table OR 
-        // just compute from the current page (might be inaccurate) OR 
-        // fetch ONLY stats columns for all courses (lightweight)
+        // 5. Compute Trends and Overview
+        // Aggregate trends from courseDetails (current page)
+        const pageTrends = new Map<string, { up: number; down: number; stable: number }>();
+        courseDetails.forEach(cd => {
+            if (!pageTrends.has(cd.faculty)) {
+                pageTrends.set(cd.faculty, { up: 0, down: 0, stable: 0 });
+            }
+            const entry = pageTrends.get(cd.faculty)!;
+            if (cd.trend === 'up') entry.up++;
+            else if (cd.trend === 'down') entry.down++;
+            else entry.stable++;
+        });
 
-        // Lightweight fetch for overview (all courses, select only key columns)
+        // Lightweight fetch for overview stats (ALL courses matching filter, not paginated)
         let overviewQuery = supabase
             .from('course_analytics')
             .select('faculty, avg_attendance_rate');
+
+        if (faculty && faculty !== 'all') {
+            overviewQuery = overviewQuery.eq('faculty', faculty);
+        }
 
         const { data: allStats } = await overviewQuery;
 
@@ -208,17 +220,19 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const overview = Array.from(facultyMap.entries()).map(([fac, data]) => ({
-            faculty: fac,
-            courseCount: data.courseCount,
-            avgRate: data.rates.length > 0
-                ? Math.round(data.rates.reduce((s, r) => s + r, 0) / data.rates.length * 10) / 10
-                : 0,
-            // Trends per faculty would need historical data, skipping for now or simplify
-            trendsUp: 0,
-            trendsDown: 0,
-            trendsStable: 0
-        })).sort((a, b) => a.faculty.localeCompare(b.faculty, 'th'));
+        const overview = Array.from(facultyMap.entries()).map(([fac, data]) => {
+            const trends = pageTrends.get(fac) || { up: 0, down: 0, stable: 0 };
+            return {
+                faculty: fac,
+                courseCount: data.courseCount,
+                avgRate: data.rates.length > 0
+                    ? Math.round(data.rates.reduce((s, r) => s + r, 0) / data.rates.length * 10) / 10
+                    : 0,
+                trendsUp: trends.up,
+                trendsDown: trends.down,
+                trendsStable: trends.stable,
+            };
+        }).sort((a, b) => a.faculty.localeCompare(b.faculty, 'th'));
 
         // Unique faculties for filter
         const faculties = overview.map(o => o.faculty);

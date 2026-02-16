@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Home, Download, Filter, TrendingUp, TrendingDown, Minus, Settings2, BarChart3, GraduationCap, Users, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Home, Download, Filter, TrendingUp, TrendingDown, Minus, Settings2, BarChart3, GraduationCap, Users, X } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
@@ -550,82 +550,66 @@ export default function AttendanceReportPage() {
                             </div>
                         )}
 
-                        {/* Course Lists by Faculty */}
-                        <div className="space-y-4">
-                            {data.overview.map(faculty => {
-                                const courses = data.courseDetails.filter(c => c.faculty === faculty.faculty);
-                                const isExpanded = expandedFaculties.has(faculty.faculty);
-
-                                return (
-                                    <div key={faculty.faculty} id={`faculty-${faculty.faculty}`} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                        <button
-                                            onClick={() => toggleFaculty(faculty.faculty)}
-                                            className="w-full px-5 py-4 flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors"
-                                        >
-                                            {isExpanded ?
-                                                <ChevronDown className="w-5 h-5 text-blue-500" /> :
-                                                <ChevronRight className="w-5 h-5 text-blue-500" />
-                                            }
-                                            <GraduationCap className="w-5 h-5 text-blue-600" />
-                                            <span className="text-base font-bold text-gray-900">{faculty.faculty}</span>
-                                            <span className="ml-auto px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                                                {courses.length} วิชา • เฉลี่ย {faculty.avgRate}%
-                                            </span>
-                                        </button>
-
-                                        {isExpanded && (
-                                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                                {courses.map((course, idx) => (
-                                                    <button
-                                                        key={idx}
-                                                        onClick={() => setSelectedCourse(course)}
-                                                        className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-4 transition-all group"
-                                                    >
-                                                        <div className="flex items-start justify-between mb-2">
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-bold text-gray-900 truncate">
-                                                                    {course.course_code} {course.course_name || ''}
-                                                                </p>
-                                                                <p className="text-xs text-gray-500 truncate">
-                                                                    กลุ่ม {course.section} ({course.study_code === 'C' ? 'ท' : 'ป'})
-                                                                    {course.instructor && ` • ${course.instructor}`}
-                                                                </p>
-                                                            </div>
-                                                            <TrendBadge trend={course.trend} />
-                                                        </div>
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="text-xs text-gray-500">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <Users className="w-3.5 h-3.5" />
-                                                                    {course.totalStudents} คน
-                                                                </div>
-                                                                <div className="text-[10px] text-gray-400 mt-0.5">
-                                                                    เช็คชื่อ {course.checkedSessions}/{course.totalSessionSlots} ครั้ง
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <p className={`text-lg font-bold ${course.latestRate < 60 ? 'text-red-600' : course.latestRate < 70 ? 'text-orange-600' : course.latestRate < 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                                                                    {course.latestRate}%
-                                                                </p>
-                                                                <p className="text-[10px] text-gray-400">ครั้งล่าสุด</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
-                                                            <div
-                                                                className={`h-1.5 rounded-full transition-all ${course.latestRate < 60 ? 'bg-red-500' : course.latestRate < 70 ? 'bg-orange-500' : course.latestRate < 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                                                style={{ width: `${Math.min(course.latestRate, 100)}%` }}
-                                                            />
-                                                        </div>
-                                                        <p className="text-[10px] text-blue-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            📈 คลิกดูกราฟ trend รายครั้ง
-                                                        </p>
-                                                    </button>
-                                                ))}
+                        {/* Course List */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center gap-3">
+                                <GraduationCap className="w-5 h-5 text-blue-600" />
+                                <span className="text-base font-bold text-gray-900">รายวิชาทั้งหมด</span>
+                                <span className="ml-auto px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                                    {totalItems} วิชา
+                                </span>
+                            </div>
+                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {data.courseDetails.map((course, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setSelectedCourse(course)}
+                                        className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-4 transition-all group"
+                                    >
+                                        <div className="flex items-start justify-between mb-1">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-900 truncate">
+                                                    {course.course_code} {course.course_name || ''}
+                                                </p>
+                                                <p className="text-xs text-gray-500 truncate">
+                                                    กลุ่ม {course.section} ({course.study_code === 'C' ? 'ท' : 'ป'})
+                                                    {course.instructor && ` • ${course.instructor}`}
+                                                </p>
                                             </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                            <TrendBadge trend={course.trend} />
+                                        </div>
+                                        <p className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full inline-block mb-2 truncate max-w-full">
+                                            {course.faculty}
+                                        </p>
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-xs text-gray-500">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Users className="w-3.5 h-3.5" />
+                                                    {course.totalStudents} คน
+                                                </div>
+                                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                                    เช็คชื่อ {course.checkedSessions}/{course.totalSessionSlots} ครั้ง
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-lg font-bold ${course.latestRate < 60 ? 'text-red-600' : course.latestRate < 70 ? 'text-orange-600' : course.latestRate < 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                    {course.latestRate}%
+                                                </p>
+                                                <p className="text-[10px] text-gray-400">ครั้งล่าสุด</p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
+                                            <div
+                                                className={`h-1.5 rounded-full transition-all ${course.latestRate < 60 ? 'bg-red-500' : course.latestRate < 70 ? 'bg-orange-500' : course.latestRate < 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                style={{ width: `${Math.min(course.latestRate, 100)}%` }}
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-blue-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            📈 คลิกดูกราฟ trend รายครั้ง
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Pagination Controls */}
@@ -658,8 +642,8 @@ export default function AttendanceReportPage() {
                                                 key={pageNum}
                                                 onClick={() => setPage(pageNum)}
                                                 className={`w-9 h-9 text-sm rounded-lg transition-colors ${page === pageNum
-                                                        ? 'bg-blue-600 text-white font-bold'
-                                                        : 'border border-gray-300 hover:bg-gray-50'
+                                                    ? 'bg-blue-600 text-white font-bold'
+                                                    : 'border border-gray-300 hover:bg-gray-50'
                                                     }`}
                                             >
                                                 {pageNum}
