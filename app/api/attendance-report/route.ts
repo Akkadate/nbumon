@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
         const courseDetails = Array.from(courseMap.entries()).map(([, course]) => {
             const totalStudents = course.students.length;
 
+            // Keep ALL sessions (including empty) so chart always starts from session 1
             const sessionRates = course.sessionData.map((session, idx) => {
                 if (session.total === 0) return { session: idx + 1, rate: 0, total: 0 };
 
@@ -97,24 +98,27 @@ export async function GET(request: NextRequest) {
 
                 const rate = Math.round((attended / session.total) * 1000) / 10;
                 return { session: idx + 1, rate, total: session.total };
-            }).filter(s => s.total > 0);
+            });
 
-            // Overall attendance rate (average across all sessions)
-            const overallRate = sessionRates.length > 0
-                ? Math.round(sessionRates.reduce((sum, s) => sum + s.rate, 0) / sessionRates.length * 10) / 10
+            // For averages/trend, only use sessions that have actual data
+            const validSessions = sessionRates.filter(s => s.total > 0);
+
+            // Overall attendance rate (average across sessions with data)
+            const overallRate = validSessions.length > 0
+                ? Math.round(validSessions.reduce((sum, s) => sum + s.rate, 0) / validSessions.length * 10) / 10
                 : 0;
 
-            // Latest session rate
-            const latestRate = sessionRates.length > 0
-                ? sessionRates[sessionRates.length - 1].rate
+            // Latest session rate (last session that has data)
+            const latestRate = validSessions.length > 0
+                ? validSessions[validSessions.length - 1].rate
                 : 0;
 
-            // Trend analysis: compare first third vs last third
+            // Trend analysis: compare first third vs last third (only sessions with data)
             let trend: 'up' | 'down' | 'stable' = 'stable';
-            if (sessionRates.length >= 3) {
-                const third = Math.ceil(sessionRates.length / 3);
-                const earlyAvg = sessionRates.slice(0, third).reduce((s, r) => s + r.rate, 0) / third;
-                const lateAvg = sessionRates.slice(-third).reduce((s, r) => s + r.rate, 0) / third;
+            if (validSessions.length >= 3) {
+                const third = Math.ceil(validSessions.length / 3);
+                const earlyAvg = validSessions.slice(0, third).reduce((s, r) => s + r.rate, 0) / third;
+                const lateAvg = validSessions.slice(-third).reduce((s, r) => s + r.rate, 0) / third;
                 const diff = lateAvg - earlyAvg;
                 if (diff > 5) trend = 'up';
                 else if (diff < -5) trend = 'down';
