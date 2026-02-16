@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         // Get statistics for dashboard
         const [studentsResult, coursesResult, attendanceResult] = await Promise.all([
             supabase.from('student_analytics').select('risk_level, id, faculty').select(),
-            supabase.from('course_analytics').select('has_no_checks, students_high_absence').select(),
+            supabase.from('course_analytics').select('has_no_checks, students_high_absence', { count: 'exact' }),
             supabase.from('attendance_records').select('id, student_code, class_check_raw').select()
         ]);
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         const courses = coursesResult.data || [];
         const coursesWithoutChecks = courses.filter(c => c.has_no_checks).length;
         const coursesHighAbsence = courses.filter(c => c.students_high_absence >= 5).length;
-        const totalCourses = courses.length;
+        const totalCourses = coursesResult.count || courses.length;
 
         // Total attendance records
         const allRecords = attendanceResult.data || [];

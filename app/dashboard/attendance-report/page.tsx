@@ -45,6 +45,7 @@ interface ReportData {
     faculties: string[];
     overview: FacultyOverview[];
     courseDetails: CourseDetail[];
+    metadata?: { total: number; limit: number; offset: number };
 }
 
 function TrendBadge({ trend }: { trend: 'up' | 'down' | 'stable' }) {
@@ -83,6 +84,8 @@ function RateBar({ rate }: { rate: number }) {
     );
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export default function AttendanceReportPage() {
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -93,6 +96,9 @@ export default function AttendanceReportPage() {
     const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null);
     const [expandedFaculties, setExpandedFaculties] = useState<Set<string>>(new Set());
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [page, setPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -102,10 +108,15 @@ export default function AttendanceReportPage() {
             params.append('countP', String(countP));
             params.append('countL', String(countL));
             params.append('countS', String(countS));
+            params.append('limit', String(ITEMS_PER_PAGE));
+            params.append('offset', String((page - 1) * ITEMS_PER_PAGE));
 
             const res = await fetch(`/api/attendance-report?${params.toString()}`);
             const json = await res.json();
             setData(json);
+            if (json.metadata) {
+                setTotalItems(json.metadata.total);
+            }
             // Auto-expand all faculties initially
             setExpandedFaculties(new Set((json.overview || []).map((f: FacultyOverview) => f.faculty)));
         } catch (error) {
@@ -113,11 +124,16 @@ export default function AttendanceReportPage() {
         } finally {
             setLoading(false);
         }
-    }, [facultyFilter, countP, countL, countS]);
+    }, [facultyFilter, countP, countL, countS, page]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Reset page when filter changes
+    useEffect(() => {
+        setPage(1);
+    }, [facultyFilter]);
 
     function toggleFaculty(faculty: string) {
         setExpandedFaculties(prev => {
@@ -374,7 +390,7 @@ export default function AttendanceReportPage() {
                                 <p className="text-xs text-gray-500 mt-1">คณะ</p>
                             </div>
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-center">
-                                <p className="text-3xl font-bold text-purple-600">{data.courseDetails.length}</p>
+                                <p className="text-3xl font-bold text-purple-600">{totalItems}</p>
                                 <p className="text-xs text-gray-500 mt-1">รายวิชา</p>
                             </div>
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-center">
@@ -611,6 +627,55 @@ export default function AttendanceReportPage() {
                                 );
                             })}
                         </div>
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center justify-between gap-3">
+                                <p className="text-sm text-gray-500">
+                                    แสดง {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, totalItems)} จาก {totalItems} วิชา
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        ← ก่อนหน้า
+                                    </button>
+                                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                                        let pageNum: number;
+                                        if (totalPages <= 7) {
+                                            pageNum = i + 1;
+                                        } else if (page <= 4) {
+                                            pageNum = i + 1;
+                                        } else if (page >= totalPages - 3) {
+                                            pageNum = totalPages - 6 + i;
+                                        } else {
+                                            pageNum = page - 3 + i;
+                                        }
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setPage(pageNum)}
+                                                className={`w-9 h-9 text-sm rounded-lg transition-colors ${page === pageNum
+                                                        ? 'bg-blue-600 text-white font-bold'
+                                                        : 'border border-gray-300 hover:bg-gray-50'
+                                                    }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                    <button
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={page === totalPages}
+                                        className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        ถัดไป →
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Legend */}
                         <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center gap-6 text-xs text-gray-500">
