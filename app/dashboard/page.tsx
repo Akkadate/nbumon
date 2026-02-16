@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, BookOpen, AlertTriangle, Home, TrendingDown, BarChart3, FileText, Info, GraduationCap, Activity, ChevronRight, Shield, AlertOctagon } from 'lucide-react';
+import { Users, BookOpen, AlertTriangle, Home, TrendingDown, BarChart3, FileText, Info, GraduationCap, Activity, ChevronRight, Shield, AlertOctagon, ClipboardList } from 'lucide-react';
 
 interface Stats {
     students: {
@@ -321,6 +321,19 @@ export default function DashboardPage() {
                                 <p className="text-xs text-gray-500">ดาวน์โหลดสรุปผล</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-rose-500 transition-colors" />
+                        </div>
+                    </Link>
+
+                    <Link href="/dashboard/faculty-report" className="group">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-cyan-200 transition-all flex items-center gap-4">
+                            <div className="bg-gradient-to-br from-cyan-500 to-teal-600 p-3 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                                <ClipboardList className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-bold text-gray-900">รายงานรายคณะ</h3>
+                                <p className="text-xs text-gray-500">แยกตามอาจารย์ที่ปรึกษา</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-cyan-500 transition-colors" />
                         </div>
                     </Link>
 
