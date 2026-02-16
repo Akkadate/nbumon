@@ -25,7 +25,7 @@ export default function CoursesPage() {
             } else if (filter === 'high-absence') {
                 params.append('minAbsenceRate', '5');
             }
-            params.append('limit', '200');
+            params.append('limit', '1000');
 
             const res = await fetch(`/api/courses?${params.toString()}`);
             const data = await res.json();
