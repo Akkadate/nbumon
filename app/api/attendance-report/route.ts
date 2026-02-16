@@ -87,8 +87,8 @@ export async function GET(request: NextRequest) {
         const courseDetails = Array.from(courseMap.entries()).map(([, course]) => {
             const totalStudents = course.students.length;
 
-            // Keep ALL sessions (including empty) so chart always starts from session 1
-            const sessionRates = course.sessionData.map((session, idx) => {
+            // Build all sessions starting from session 1
+            const allSessionRates = course.sessionData.map((session, idx) => {
                 if (session.total === 0) return { session: idx + 1, rate: 0, total: 0 };
 
                 let attended = 0;
@@ -99,6 +99,13 @@ export async function GET(request: NextRequest) {
                 const rate = Math.round((attended / session.total) * 1000) / 10;
                 return { session: idx + 1, rate, total: session.total };
             });
+
+            // Trim trailing empty sessions — chart ends at last session with real data
+            let lastDataIdx = allSessionRates.length - 1;
+            while (lastDataIdx >= 0 && allSessionRates[lastDataIdx].total === 0) {
+                lastDataIdx--;
+            }
+            const sessionRates = allSessionRates.slice(0, lastDataIdx + 1);
 
             // For averages/trend, only use sessions that have actual data
             const validSessions = sessionRates.filter(s => s.total > 0);
