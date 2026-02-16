@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
             study_code: string;
             instructor: string | null;
             faculty: string;
-            students: string[];
+            students: Set<string>;
             sessionData: SessionCount[];
         }>();
 
@@ -55,13 +55,13 @@ export async function GET(request: NextRequest) {
                     study_code: record.study_code,
                     instructor: record.instructor,
                     faculty: record.faculty || 'ไม่ระบุ',
-                    students: [],
+                    students: new Set<string>(),
                     sessionData: [],
                 });
             }
 
             const course = courseMap.get(key)!;
-            course.students.push(record.student_code);
+            course.students.add(record.student_code);
 
             // Parse class_check_raw
             if (record.class_check_raw) {
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 
         // Calculate attendance % per session per course based on toggle
         const courseDetails = Array.from(courseMap.entries()).map(([, course]) => {
-            const totalStudents = course.students.length;
+            const totalStudents = course.students.size;
 
             // Build all sessions starting from session 1
             const allSessionRates = course.sessionData.map((session, idx) => {
@@ -139,6 +139,8 @@ export async function GET(request: NextRequest) {
                 instructor: course.instructor,
                 faculty: course.faculty,
                 totalStudents,
+                checkedSessions: validSessions.length,
+                totalSessionSlots: sessionRates.length,
                 overallRate,
                 latestRate,
                 trend,

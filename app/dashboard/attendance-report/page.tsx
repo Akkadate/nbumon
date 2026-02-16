@@ -24,6 +24,8 @@ interface CourseDetail {
     instructor: string | null;
     faculty: string;
     totalStudents: number;
+    checkedSessions: number;
+    totalSessionSlots: number;
     overallRate: number;
     latestRate: number;
     trend: 'up' | 'down' | 'stable';
@@ -455,7 +457,9 @@ export default function AttendanceReportPage() {
                                             <p className="text-sm text-gray-500">
                                                 กลุ่ม {selectedCourse.section} ({selectedCourse.study_code === 'C' ? 'ทฤษฎี' : 'ปฏิบัติ'})
                                                 {selectedCourse.instructor && ` — ${selectedCourse.instructor}`}
-                                                {` (นศ. ${selectedCourse.totalStudents} คน)`}
+                                            </p>
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                                นศ. {selectedCourse.totalStudents} คน • เช็คชื่อแล้ว {selectedCourse.checkedSessions}/{selectedCourse.totalSessionSlots} ครั้ง
                                             </p>
                                         </div>
                                         <button onClick={() => setSelectedCourse(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -574,9 +578,14 @@ export default function AttendanceReportPage() {
                                                             <TrendBadge trend={course.trend} />
                                                         </div>
                                                         <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                                                <Users className="w-3.5 h-3.5" />
-                                                                {course.totalStudents} คน
+                                                            <div className="text-xs text-gray-500">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <Users className="w-3.5 h-3.5" />
+                                                                    {course.totalStudents} คน
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                                                    เช็คชื่อ {course.checkedSessions}/{course.totalSessionSlots} ครั้ง
+                                                                </div>
                                                             </div>
                                                             <div className="text-right">
                                                                 <p className={`text-lg font-bold ${course.latestRate < 60 ? 'text-red-600' : course.latestRate < 70 ? 'text-orange-600' : course.latestRate < 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
