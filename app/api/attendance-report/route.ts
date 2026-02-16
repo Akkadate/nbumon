@@ -179,60 +179,62 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        // 5. Compute Trends and Overview
-        // Aggregate trends from courseDetails (current page)
-        const pageTrends = new Map<string, { up: number; down: number; stable: number }>();
-        courseDetails.forEach(cd => {
-            if (!pageTrends.has(cd.faculty)) {
-                pageTrends.set(cd.faculty, { up: 0, down: 0, stable: 0 });
-            }
-            const entry = pageTrends.get(cd.faculty)!;
-            if (cd.trend === 'up') entry.up++;
-            else if (cd.trend === 'down') entry.down++;
-            else entry.stable++;
-        });
-
-        // Lightweight fetch for overview stats (ALL courses matching filter, not paginated)
+        // 5. Overview stats from ALL courses (not paginated)
         let overviewQuery = supabase
             .from('course_analytics')
-            .select('faculty, avg_attendance_rate');
+            .select('faculty, avg_attendance_rate, trend');
 
         if (faculty && faculty !== 'all') {
             overviewQuery = overviewQuery.eq('faculty', faculty);
         }
 
-        const { data: allStats } = await overviewQuery;
+        // Supabase default limit is 1000, fetch all with pagination
+        const allStats: { faculty: string; avg_attendance_rate: number; trend: string | null }[] = [];
+        let ovPage = 0;
+        const ovPageSize = 1000;
+        let ovHasMore = true;
+        while (ovHasMore) {
+            const { data: ovBatch } = await overviewQuery.range(ovPage * ovPageSize, (ovPage + 1) * ovPageSize - 1);
+            if (ovBatch && ovBatch.length > 0) {
+                allStats.push(...ovBatch);
+                ovPage++;
+                if (ovBatch.length < ovPageSize) ovHasMore = false;
+            } else {
+                ovHasMore = false;
+            }
+        }
 
         const facultyMap = new Map<string, {
             courseCount: number;
             rates: number[];
+            trendsUp: number;
+            trendsDown: number;
+            trendsStable: number;
         }>();
 
-        if (allStats) {
-            allStats.forEach(c => {
-                const fac = c.faculty || 'ไม่ระบุ';
-                if (!facultyMap.has(fac)) {
-                    facultyMap.set(fac, { courseCount: 0, rates: [] });
-                }
-                const entry = facultyMap.get(fac)!;
-                entry.courseCount++;
-                entry.rates.push(c.avg_attendance_rate || 0);
-            });
-        }
+        allStats.forEach(c => {
+            const fac = c.faculty || 'ไม่ระบุ';
+            if (!facultyMap.has(fac)) {
+                facultyMap.set(fac, { courseCount: 0, rates: [], trendsUp: 0, trendsDown: 0, trendsStable: 0 });
+            }
+            const entry = facultyMap.get(fac)!;
+            entry.courseCount++;
+            entry.rates.push(c.avg_attendance_rate || 0);
+            if (c.trend === 'up') entry.trendsUp++;
+            else if (c.trend === 'down') entry.trendsDown++;
+            else entry.trendsStable++;
+        });
 
-        const overview = Array.from(facultyMap.entries()).map(([fac, data]) => {
-            const trends = pageTrends.get(fac) || { up: 0, down: 0, stable: 0 };
-            return {
-                faculty: fac,
-                courseCount: data.courseCount,
-                avgRate: data.rates.length > 0
-                    ? Math.round(data.rates.reduce((s, r) => s + r, 0) / data.rates.length * 10) / 10
-                    : 0,
-                trendsUp: trends.up,
-                trendsDown: trends.down,
-                trendsStable: trends.stable,
-            };
-        }).sort((a, b) => a.faculty.localeCompare(b.faculty, 'th'));
+        const overview = Array.from(facultyMap.entries()).map(([fac, data]) => ({
+            faculty: fac,
+            courseCount: data.courseCount,
+            avgRate: data.rates.length > 0
+                ? Math.round(data.rates.reduce((s, r) => s + r, 0) / data.rates.length * 10) / 10
+                : 0,
+            trendsUp: data.trendsUp,
+            trendsDown: data.trendsDown,
+            trendsStable: data.trendsStable,
+        })).sort((a, b) => a.faculty.localeCompare(b.faculty, 'th'));
 
         // Unique faculties for filter
         const faculties = overview.map(o => o.faculty);

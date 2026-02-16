@@ -105,6 +105,42 @@ async function recalculateAnalytics() {
         // Check if no checks
         const hasNoChecks = records.every(r => hasNoAttendanceChecks(r.class_check_raw));
 
+        // Compute trend from class_check_raw data
+        // Build per-session attendance counts
+        const sessionData: { P: number; total: number }[] = [];
+        for (const record of records) {
+            if (record.class_check_raw) {
+                const raw = record.class_check_raw.replace(/"/g, '');
+                const sessions = raw.split(',');
+                while (sessionData.length < sessions.length) {
+                    sessionData.push({ P: 0, total: 0 });
+                }
+                sessions.forEach((status: string, idx: number) => {
+                    const s = status.trim().toUpperCase();
+                    if (['P', 'A', 'L', 'S'].includes(s)) {
+                        sessionData[idx].total++;
+                        if (s === 'P' || s === 'L' || s === 'S') {
+                            sessionData[idx].P++;
+                        }
+                    }
+                });
+            }
+        }
+        // Compute per-session rates (only sessions with data)
+        const validSessionRates = sessionData
+            .filter(s => s.total > 0)
+            .map(s => Math.round((s.P / s.total) * 1000) / 10);
+
+        let trend: 'up' | 'down' | 'stable' = 'stable';
+        if (validSessionRates.length >= 3) {
+            const third = Math.ceil(validSessionRates.length / 3);
+            const earlyAvg = validSessionRates.slice(0, third).reduce((s, r) => s + r, 0) / third;
+            const lateAvg = validSessionRates.slice(-third).reduce((s, r) => s + r, 0) / third;
+            const diff = lateAvg - earlyAvg;
+            if (diff > 5) trend = 'up';
+            else if (diff < -5) trend = 'down';
+        }
+
         courseAnalytics.push({
             course_code: firstRecord.course_code,
             revision_code: firstRecord.revision_code || '',
@@ -120,6 +156,7 @@ async function recalculateAnalytics() {
             avg_attendance_rate: Math.round(avgAttendanceRate * 100) / 100,
             has_no_checks: hasNoChecks,
             total_sessions: firstRecord.total_sessions || 0,
+            trend: trend,
             last_updated: new Date().toISOString()
         });
     }
