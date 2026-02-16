@@ -337,6 +337,19 @@ export default function DashboardPage() {
                         </div>
                     </Link>
 
+                    <Link href="/dashboard/attendance-report" className="group">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-teal-200 transition-all flex items-center gap-4">
+                            <div className="bg-gradient-to-br from-teal-500 to-emerald-600 p-3 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
+                                <TrendingDown className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-bold text-gray-900">ภาพรวม % เข้าเรียน</h3>
+                                <p className="text-xs text-gray-500">Toggle P/L/S • กราฟ Trend</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-teal-500 transition-colors" />
+                        </div>
+                    </Link>
+
                     <Link href="/dashboard/manual" className="group">
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-indigo-200 transition-all flex items-center gap-4">
                             <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 rounded-xl shadow-sm group-hover:shadow-md transition-shadow">
