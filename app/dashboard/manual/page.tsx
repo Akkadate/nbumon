@@ -207,7 +207,7 @@ export default function ManualPage() {
                 <section className="bg-white rounded-xl shadow-md p-6">
                     <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <Info className="w-6 h-6 text-indigo-600" />
-                        5. วิธีใช้งานระบบ
+                        5. วิธีใช้งานระบบทั่วไป
                     </h2>
                     <div className="space-y-3">
                         <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
@@ -221,7 +221,7 @@ export default function ManualPage() {
                             <span className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shrink-0">2</span>
                             <div>
                                 <p className="font-medium text-gray-800">รายชื่อนักศึกษา</p>
-                                <p className="text-sm text-gray-600">กรองตามระดับความเสี่ยง คลิกที่คอลัมน์ &quot;วิชาที่มีความเสี่ยง&quot; เพื่อดูรายละเอียดวิชาที่มีปัญหา</p>
+                                <p className="text-sm text-gray-600">กรองตามระดับความเสี่ยง คลิกที่คอลัมน์ "วิชาที่มีความเสี่ยง" เพื่อดูรายละเอียดวิชาที่มีปัญหา</p>
                             </div>
                         </div>
                         <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
@@ -231,19 +231,53 @@ export default function ManualPage() {
                                 <p className="text-sm text-gray-600">ตรวจสอบวิชาที่ไม่มีการเช็คชื่อ หรือวิชาที่มีนักศึกษาขาดเรียนจำนวนมาก</p>
                             </div>
                         </div>
-                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                            <span className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shrink-0">4</span>
-                            <div>
-                                <p className="font-medium text-gray-800">กราฟวิเคราะห์</p>
-                                <p className="text-sm text-gray-600">ดูกราฟสัดส่วนความเสี่ยง และวิชาที่มีปัญหามากที่สุด</p>
-                            </div>
+                    </div>
+                </section>
+
+                {/* Section 6: รายงานพิเศษ */}
+                <section className="bg-white rounded-xl shadow-md p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Info className="w-6 h-6 text-purple-600" />
+                        6. รายงานและการใช้งานพิเศษ
+                    </h2>
+                    <div className="space-y-6">
+                        {/* Advisor Dashboard */}
+                        <div className="border border-purple-100 rounded-xl p-4 bg-purple-50/30">
+                            <h3 className="font-bold text-purple-800 flex items-center gap-2 mb-2">
+                                <span className="text-xl">👥</span> สำหรับอาจารย์ที่ปรึกษา (Advisor Dashboard)
+                            </h3>
+                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 ml-2">
+                                <li>เข้าใช้งานที่เมนู <strong>"สำหรับอาจารย์ที่ปรึกษา"</strong> เพื่อดูข้อมูลเฉพาะกลุ่มนักศึกษาของตนเอง</li>
+                                <li>เลือกรายชื่ออาจารย์จากตัวเลือกด้านบน</li>
+                                <li>ระบบจะแสดงจำนวนนักศึกษาในกลุ่มเสี่ยง (วิกฤต/เฝ้าระวัง) เฉพาะของอาจารย์ท่านนั้น</li>
+                                <li>สามารถ <strong>Export Excel</strong> รายชื่อนักศึกษาในความดูแลได้</li>
+                            </ul>
                         </div>
-                        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                            <span className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shrink-0">5</span>
-                            <div>
-                                <p className="font-medium text-gray-800">ดาวน์โหลดรายงาน PDF</p>
-                                <p className="text-sm text-gray-600">สร้างรายงานสรุปในรูปแบบ PDF เพื่อนำเสนอหรือจัดเก็บ</p>
-                            </div>
+
+                        {/* Faculty Report */}
+                        <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/30">
+                            <h3 className="font-bold text-blue-800 flex items-center gap-2 mb-2">
+                                <span className="text-xl">📋</span> รายงานคณะ (Faculty Report)
+                            </h3>
+                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 ml-2">
+                                <li>เข้าใช้งานที่เมนู <strong>"รายงานคณะ"</strong></li>
+                                <li>แสดงรายชื่อนักศึกษาที่ต้องติดตาม โดยจัดกลุ่มตาม: <strong>คณะ → อาจารย์ที่ปรึกษา → นักศึกษา → รายวิชา</strong></li>
+                                <li>เหมาะสำหรับหัวหน้าสาขาหรือคณบดีเพื่อดูภาพรวม</li>
+                                <li>สามารถดาวน์โหลดเป็น <strong>PDF</strong> หรือ <strong>CSV</strong> ได้</li>
+                            </ul>
+                        </div>
+
+                        {/* Attendance Report */}
+                        <div className="border border-emerald-100 rounded-xl p-4 bg-emerald-50/30">
+                            <h3 className="font-bold text-emerald-800 flex items-center gap-2 mb-2">
+                                <span className="text-xl">📊</span> รายงานเข้าเรียน (Attendance Report)
+                            </h3>
+                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 ml-2">
+                                <li>เข้าใช้งานที่เมนู <strong>"รายงานการเข้าเรียน"</strong></li>
+                                <li>ดูแนวโน้ม % การเข้าเรียนของแต่ละวิชา ว่าเพิ่มขึ้นหรือลดลง</li>
+                                <li>สามารถ <strong>ตั้งค่าการคำนวณ</strong> ได้ว่าให้นับการ "มาสาย (L)" หรือ "ลา (S)" เป็นการเข้าเรียนด้วยหรือไม่</li>
+                                <li>แสดงกราฟแนวโน้มรายสัปดาห์เมื่อคลิกที่รายวิชา</li>
+                            </ul>
                         </div>
                     </div>
                 </section>
