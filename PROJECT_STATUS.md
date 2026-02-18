@@ -260,7 +260,7 @@ Course analytics list.
 ### Not Yet Implemented (Future Ideas)
 - [ ] PDF report generation per student
 - [ ] LINE push notification (alert when absence ≥ threshold)
-- [ ] Advisor dashboard (filter by advisor)
+- [x] Advisor dashboard (filter by advisor)
 - [ ] Academic year / semester filter
 - [ ] Historical trend comparison
 - [ ] Batch LINE notification to at-risk students

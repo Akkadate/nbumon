@@ -13,12 +13,27 @@ function getTrailingAbsences(classCheckRaw: string): number {
 }
 
 export async function GET(request: NextRequest) {
+    const searchParams = request.nextUrl.searchParams;
+    const advisor = searchParams.get('advisor');
+
     try {
+        let studentsQuery = supabase.from('student_analytics').select('risk_level, id, faculty, advisor_name');
+        let attendanceQuery = supabase.from('attendance_records').select('id, student_code, class_check_raw, advisor_name');
+        // Course analytics is hard to filter by advisor directly as it's course-based. 
+        // We will keep course stats global OR filtered if we join, but for now let's keep it global or just not filter it strictly if complex.
+        // Actually, for the Advisor Dashboard, we might not show "Course Stats" or we can just show global course stats.
+        // Let's filter students and attendance accurately.
+
+        if (advisor && advisor !== 'all') {
+            studentsQuery = studentsQuery.eq('advisor_name', advisor);
+            attendanceQuery = attendanceQuery.eq('advisor_name', advisor);
+        }
+
         // Get statistics for dashboard
         const [studentsResult, coursesResult, attendanceResult] = await Promise.all([
-            supabase.from('student_analytics').select('risk_level, id, faculty').select(),
+            studentsQuery,
             supabase.from('course_analytics').select('has_no_checks, students_high_absence', { count: 'exact' }),
-            supabase.from('attendance_records').select('id, student_code, class_check_raw').select()
+            attendanceQuery
         ]);
 
         // Count students by risk level

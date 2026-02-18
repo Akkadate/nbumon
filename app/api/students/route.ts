@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
             query = query.eq('year_level', parseInt(yearLevel));
         }
 
+        const advisor = searchParams.get('advisor');
+        if (advisor && advisor !== 'all') {
+            query = query.eq('advisor_name', advisor);
+        }
+
         if (search && search.trim()) {
             query = query.or(`student_code.ilike.%${search.trim()}%,student_name.ilike.%${search.trim()}%`);
         }
