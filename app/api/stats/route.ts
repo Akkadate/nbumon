@@ -6,8 +6,8 @@ export async function GET(request: NextRequest) {
     const advisorParam = advisor && advisor !== 'all' ? advisor : null;
 
     try {
-        // Run all 3 queries in parallel for maximum speed
-        const [studentRes, courseRes, consecutiveRes] = await Promise.all([
+        // Run all 4 queries in parallel for maximum speed
+        const [studentRes, courseRes, consecutiveRes, recordsRes] = await Promise.all([
 
             // 1. Student counts + faculty list
             query<{
@@ -39,14 +39,18 @@ export async function GET(request: NextRequest) {
                 FROM course_analytics`
             ),
 
-            // 3. Students with ≥3 consecutive trailing absences (uses DB function)
+            // 3. Students with ≥3 consecutive trailing absences (uses stored column)
             query<{ count: string }>(
                 `SELECT COUNT(DISTINCT student_code)::text AS count
                  FROM attendance_records
-                 WHERE class_check_raw IS NOT NULL
-                   AND count_trailing_absences(class_check_raw) >= 3
+                 WHERE trailing_absences >= 3
                    ${advisorParam ? 'AND advisor_name = $1' : ''}`,
                 advisorParam ? [advisorParam] : undefined
+            ),
+
+            // 4. Total attendance records count
+            query<{ count: string }>(
+                `SELECT COUNT(*)::text AS count FROM attendance_records`
             ),
         ]);
 
@@ -73,6 +77,9 @@ export async function GET(request: NextRequest) {
             },
             consecutiveAbsence: {
                 studentsCount: parseInt(consecutiveRes.rows[0].count),
+            },
+            records: {
+                total: parseInt(recordsRes.rows[0].count),
             },
         });
     } catch (error) {
