@@ -1,97 +1,82 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-
-function getTrailingAbsences(classCheckRaw: string): number {
-    if (!classCheckRaw) return 0;
-    const entries = classCheckRaw.split(',').map(s => s.trim().toUpperCase()).filter(e => ['P', 'A', 'L', 'S'].includes(e));
-    let count = 0;
-    for (let i = entries.length - 1; i >= 0; i--) {
-        if (entries[i] === 'A') count++;
-        else break;
-    }
-    return count;
-}
+import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
-    const searchParams = request.nextUrl.searchParams;
-    const advisor = searchParams.get('advisor');
+    const advisor = request.nextUrl.searchParams.get('advisor');
+    const advisorParam = advisor && advisor !== 'all' ? advisor : null;
 
     try {
-        let studentsQuery = supabase.from('student_analytics').select('risk_level, id, faculty, advisor_name');
-        let attendanceQuery = supabase.from('attendance_records').select('id, student_code, class_check_raw, advisor_name');
-        // Course analytics is hard to filter by advisor directly as it's course-based. 
-        // We will keep course stats global OR filtered if we join, but for now let's keep it global or just not filter it strictly if complex.
-        // Actually, for the Advisor Dashboard, we might not show "Course Stats" or we can just show global course stats.
-        // Let's filter students and attendance accurately.
+        // Run all 3 queries in parallel for maximum speed
+        const [studentRes, courseRes, consecutiveRes] = await Promise.all([
 
-        if (advisor && advisor !== 'all') {
-            studentsQuery = studentsQuery.eq('advisor_name', advisor);
-            attendanceQuery = attendanceQuery.eq('advisor_name', advisor);
-        }
+            // 1. Student counts + faculty list
+            query<{
+                total: string; critical: string; monitor: string; follow_up: string;
+                normal: string; faculty_count: string; faculties: string[];
+            }>(
+                `SELECT
+                    COUNT(*)::text                                                              AS total,
+                    SUM(CASE WHEN risk_level = 'critical'  THEN 1 ELSE 0 END)::text           AS critical,
+                    SUM(CASE WHEN risk_level = 'monitor'   THEN 1 ELSE 0 END)::text           AS monitor,
+                    SUM(CASE WHEN risk_level = 'follow_up' THEN 1 ELSE 0 END)::text           AS follow_up,
+                    SUM(CASE WHEN risk_level = 'normal'    THEN 1 ELSE 0 END)::text           AS normal,
+                    COUNT(DISTINCT faculty) FILTER (WHERE faculty IS NOT NULL)::text           AS faculty_count,
+                    COALESCE(
+                        array_agg(DISTINCT faculty ORDER BY faculty) FILTER (WHERE faculty IS NOT NULL),
+                        '{}'
+                    )                                                                          AS faculties
+                FROM student_analytics
+                ${advisorParam ? 'WHERE advisor_name = $1' : ''}`,
+                advisorParam ? [advisorParam] : undefined
+            ),
 
-        // Get statistics for dashboard
-        const [studentsResult, coursesResult, attendanceResult] = await Promise.all([
-            studentsQuery,
-            supabase.from('course_analytics').select('has_no_checks, students_high_absence', { count: 'exact' }),
-            attendanceQuery
+            // 2. Course stats
+            query<{ total: string; without_checks: string; high_absence: string }>(
+                `SELECT
+                    COUNT(*)::text                                                                  AS total,
+                    SUM(CASE WHEN has_no_checks THEN 1 ELSE 0 END)::text                           AS without_checks,
+                    SUM(CASE WHEN students_high_absence >= 5 THEN 1 ELSE 0 END)::text              AS high_absence
+                FROM course_analytics`
+            ),
+
+            // 3. Students with ≥3 consecutive trailing absences (uses DB function)
+            query<{ count: string }>(
+                `SELECT COUNT(DISTINCT student_code)::text AS count
+                 FROM attendance_records
+                 WHERE class_check_raw IS NOT NULL
+                   AND count_trailing_absences(class_check_raw) >= 3
+                   ${advisorParam ? 'AND advisor_name = $1' : ''}`,
+                advisorParam ? [advisorParam] : undefined
+            ),
         ]);
 
-        // Count students by risk level
-        const students = studentsResult.data || [];
-        const criticalStudents = students.filter(s => s.risk_level === 'critical').length;
-        const monitorStudents = students.filter(s => s.risk_level === 'monitor').length;
-        const followUpStudents = students.filter(s => s.risk_level === 'follow_up').length;
-        const totalStudents = students.length;
-
-        // Count unique faculties
-        const uniqueFaculties = new Set(students.map(s => s.faculty).filter(Boolean));
-
-        // Count courses
-        const courses = coursesResult.data || [];
-        const coursesWithoutChecks = courses.filter(c => c.has_no_checks).length;
-        const coursesHighAbsence = courses.filter(c => c.students_high_absence >= 5).length;
-        const totalCourses = coursesResult.count || courses.length;
-
-        // Total attendance records
-        const allRecords = attendanceResult.data || [];
-        const totalRecords = allRecords.length;
-
-        // Count unique students with 3+ consecutive trailing absences
-        const studentsWithConsecutive = new Set<string>();
-        for (const rec of allRecords) {
-            if (rec.class_check_raw && getTrailingAbsences(rec.class_check_raw) >= 3) {
-                studentsWithConsecutive.add(rec.student_code);
-            }
-        }
+        const s = studentRes.rows[0];
+        const c = courseRes.rows[0];
+        const totalStudents = parseInt(s.total);
 
         return NextResponse.json({
             students: {
-                total: totalStudents,
-                critical: criticalStudents,
-                monitor: monitorStudents,
-                followUp: followUpStudents,
-                normal: totalStudents - criticalStudents - monitorStudents - followUpStudents
+                total:    totalStudents,
+                critical: parseInt(s.critical),
+                monitor:  parseInt(s.monitor),
+                followUp: parseInt(s.follow_up),
+                normal:   parseInt(s.normal),
             },
             courses: {
-                total: totalCourses,
-                withoutChecks: coursesWithoutChecks,
-                highAbsence: coursesHighAbsence
-            },
-            records: {
-                total: totalRecords
+                total:         parseInt(c.total),
+                withoutChecks: parseInt(c.without_checks),
+                highAbsence:   parseInt(c.high_absence),
             },
             faculties: {
-                total: uniqueFaculties.size,
-                list: Array.from(uniqueFaculties).sort()
+                total: parseInt(s.faculty_count),
+                list:  s.faculties || [],
             },
             consecutiveAbsence: {
-                studentsCount: studentsWithConsecutive.size
-            }
+                studentsCount: parseInt(consecutiveRes.rows[0].count),
+            },
         });
     } catch (error) {
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        console.error('Error fetching stats:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

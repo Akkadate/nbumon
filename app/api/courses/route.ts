@@ -1,58 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
-    const searchParams = request.nextUrl.searchParams;
-    const hasNoChecks = searchParams.get('hasNoChecks');
-    const minAbsenceRate = searchParams.get('minAbsenceRate');
-    const q = searchParams.get('q');
-    const limit = parseInt(searchParams.get('limit') || '20'); // Default to 20 for pagination
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const searchParams    = request.nextUrl.searchParams;
+    const hasNoChecks     = searchParams.get('hasNoChecks');
+    const minAbsenceRate  = searchParams.get('minAbsenceRate');
+    const q               = searchParams.get('q');
+    const limit           = Math.min(parseInt(searchParams.get('limit')  || '20'), 200);
+    const offset          = parseInt(searchParams.get('offset') || '0');
 
     try {
-        let query = supabase
-            .from('course_analytics')
-            .select('*', { count: 'exact' }); // Request exact count for pagination
+        const conditions: string[] = [];
+        const params: unknown[]    = [];
 
-        // Apply filters
         if (q) {
-            // Search by course_code, name, or instructor
-            query = query.or(`course_code.ilike.%${q}%,course_name.ilike.%${q}%,instructor.ilike.%${q}%`);
+            params.push(`%${q}%`);
+            const idx = params.length;
+            conditions.push(`(course_code ILIKE $${idx} OR course_name ILIKE $${idx} OR instructor ILIKE $${idx})`);
         }
-
         if (hasNoChecks === 'true') {
-            query = query.eq('has_no_checks', true);
+            conditions.push('has_no_checks = TRUE');
         } else if (hasNoChecks === 'false') {
-            query = query.eq('has_no_checks', false);
+            conditions.push('has_no_checks = FALSE');
         }
-
         if (minAbsenceRate) {
-            query = query.gte('students_high_absence', parseInt(minAbsenceRate));
+            params.push(parseInt(minAbsenceRate));
+            conditions.push(`students_high_absence >= $${params.length}`);
         }
 
-        // Apply sorting: Primary by absence (desc), Secondary by course_code (asc) for stability
-        query = query.order('students_high_absence', { ascending: false })
-            .order('course_code', { ascending: true });
+        const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        // Apply pagination
-        query = query.range(offset, offset + limit - 1);
+        params.push(limit);
+        const limitIdx = params.length;
+        params.push(offset);
+        const offsetIdx = params.length;
 
-        const { data, error, count } = await query;
-
-        if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json({
-            data,
-            total: count,
-            limit,
-            offset
-        });
-    } catch (error) {
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
+        const { rows } = await query(
+            `SELECT *, COUNT(*) OVER()::int AS total_count
+             FROM course_analytics
+             ${where}
+             ORDER BY students_high_absence DESC, course_code ASC
+             LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+            params
         );
+
+        const total = rows.length > 0 ? (rows[0].total_count as number) : 0;
+        const data  = rows.map(({ total_count: _tc, ...rest }) => rest);
+
+        return NextResponse.json({ data, total: total, limit, offset });
+    } catch (error) {
+        console.error('Error fetching courses:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

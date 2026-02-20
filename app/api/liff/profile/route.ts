@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
     const lineUserId = request.nextUrl.searchParams.get('lineUserId');
@@ -9,40 +9,46 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Look up student code from LINE UUID
-        const { data: mapping, error: mappingError } = await supabase
-            .from('line_students')
-            .select('student_code, display_name, picture_url, registered_at, updated_at')
-            .eq('line_user_id', lineUserId)
-            .single();
+        // Look up LINE mapping
+        const { rows: mappingRows } = await query(
+            `SELECT student_code, display_name, picture_url, registered_at, updated_at
+             FROM line_students
+             WHERE line_user_id = $1`,
+            [lineUserId]
+        );
 
-        if (mappingError || !mapping) {
+        if (mappingRows.length === 0) {
             return NextResponse.json({ registered: false });
         }
 
-        // Get student analytics
-        const { data: student } = await supabase
-            .from('student_analytics')
-            .select('*')
-            .eq('student_code', mapping.student_code)
-            .single();
+        const mapping = mappingRows[0];
 
-        // Get all courses with attendance data
-        const { data: courses } = await supabase
-            .from('attendance_records')
-            .select('course_code, course_name, revision_code, section, study_code, instructor, attendance_rate, absence_rate, present_count, absent_count, late_count, leave_count, total_sessions, class_check_raw')
-            .eq('student_code', mapping.student_code)
-            .order('absence_rate', { ascending: false });
+        // Fetch student analytics + courses in parallel
+        const [studentRes, coursesRes] = await Promise.all([
+            query(
+                `SELECT * FROM student_analytics WHERE student_code = $1`,
+                [mapping.student_code]
+            ),
+            query(
+                `SELECT course_code, course_name, revision_code, section, study_code, instructor,
+                        attendance_rate, absence_rate, present_count, absent_count,
+                        late_count, leave_count, total_sessions, class_check_raw
+                 FROM attendance_records
+                 WHERE student_code = $1
+                 ORDER BY absence_rate DESC`,
+                [mapping.student_code]
+            ),
+        ]);
 
         return NextResponse.json({
             registered: true,
-            student: student || null,
-            courses: courses || [],
+            student:    studentRes.rows[0] || null,
+            courses:    coursesRes.rows,
             lineProfile: {
-                displayName: mapping.display_name,
-                pictureUrl: mapping.picture_url,
+                displayName:  mapping.display_name,
+                pictureUrl:   mapping.picture_url,
                 registeredAt: mapping.registered_at,
-                updatedAt: mapping.updated_at,
+                updatedAt:    mapping.updated_at,
             },
         });
     } catch (error) {

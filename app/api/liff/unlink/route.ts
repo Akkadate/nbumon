@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
     try {
@@ -7,18 +7,13 @@ export async function POST(request: NextRequest) {
         const { lineUserId } = body;
 
         if (!lineUserId) {
-            return NextResponse.json(
-                { error: 'lineUserId is required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'lineUserId is required' }, { status: 400 });
         }
 
-        const { error } = await supabase
-            .from('line_students')
-            .delete()
-            .eq('line_user_id', lineUserId);
-
-        if (error) throw error;
+        await query(
+            `DELETE FROM line_students WHERE line_user_id = $1`,
+            [lineUserId]
+        );
 
         return NextResponse.json({ success: true });
     } catch (error) {

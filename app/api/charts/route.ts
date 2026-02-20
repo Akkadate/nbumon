@@ -1,119 +1,161 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
-        // Get all student analytics for charts (with enhanced fields)
-        const { data: students, error: studentsError } = await supabase
-            .from('student_analytics')
-            .select('risk_level, avg_absence_rate, avg_attendance_rate, courses_at_risk, total_courses, faculty, year_level, gpa');
+        // Run all chart queries in parallel
+        const [riskRes, facultyRes, yearRes, absenceDistRes, scatterRes, gpaRes, topCoursesRes, summaryRes] =
+            await Promise.all([
 
-        if (studentsError) throw studentsError;
+                // 1. Risk distribution
+                query<{ risk_level: string; cnt: string }>(
+                    `SELECT risk_level, COUNT(*)::text AS cnt FROM student_analytics GROUP BY risk_level`
+                ),
 
-        // Get course analytics for top absent courses (with enhanced fields)
-        const { data: courses, error: coursesError } = await supabase
-            .from('course_analytics')
-            .select('course_code, course_name, section, study_code, instructor, total_students, students_high_absence, avg_attendance_rate, has_no_checks')
-            .order('students_high_absence', { ascending: false })
-            .limit(15);
+                // 2. Faculty × risk distribution
+                query<{ faculty: string; risk_level: string; cnt: string }>(
+                    `SELECT COALESCE(faculty,'ไม่ระบุ') AS faculty, risk_level, COUNT(*)::text AS cnt
+                     FROM student_analytics
+                     GROUP BY COALESCE(faculty,'ไม่ระบุ'), risk_level`
+                ),
 
-        if (coursesError) throw coursesError;
+                // 3. Year level × risk distribution
+                query<{ year_level: number; risk_level: string; cnt: string }>(
+                    `SELECT year_level, risk_level, COUNT(*)::text AS cnt
+                     FROM student_analytics
+                     WHERE year_level > 0
+                     GROUP BY year_level, risk_level
+                     ORDER BY year_level`
+                ),
 
-        // 1. Risk Distribution (for Pie Chart)
-        const riskDistribution = [
-            { name: 'วิกฤต', value: students?.filter(s => s.risk_level === 'critical').length || 0, color: '#dc2626' },
-            { name: 'เฝ้าระวัง', value: students?.filter(s => s.risk_level === 'monitor').length || 0, color: '#ea580c' },
-            { name: 'ติดตาม', value: students?.filter(s => s.risk_level === 'follow_up').length || 0, color: '#2563eb' },
-            { name: 'ปกติ', value: students?.filter(s => s.risk_level === 'normal').length || 0, color: '#16a34a' },
-        ];
+                // 4. Absence rate histogram buckets
+                query<{ range: string; cnt: string }>(
+                    `SELECT
+                        CASE
+                            WHEN avg_absence_rate <  10 THEN '0-9%'
+                            WHEN avg_absence_rate <  20 THEN '10-19%'
+                            WHEN avg_absence_rate <  30 THEN '20-29%'
+                            WHEN avg_absence_rate <  40 THEN '30-39%'
+                            WHEN avg_absence_rate <  50 THEN '40-49%'
+                            WHEN avg_absence_rate <  60 THEN '50-59%'
+                            WHEN avg_absence_rate <  70 THEN '60-69%'
+                            WHEN avg_absence_rate <  80 THEN '70-79%'
+                            WHEN avg_absence_rate <  90 THEN '80-89%'
+                            ELSE '90-100%'
+                        END AS range,
+                        COUNT(*)::text AS cnt
+                     FROM student_analytics
+                     GROUP BY 1
+                     ORDER BY MIN(avg_absence_rate)`
+                ),
 
-        // 2. Absence Rate Distribution (for Histogram)
-        const absenceRanges = [
-            { range: '0-9%', min: 0, max: 10 },
-            { range: '10-19%', min: 10, max: 20 },
-            { range: '20-29%', min: 20, max: 30 },
-            { range: '30-39%', min: 30, max: 40 },
-            { range: '40-49%', min: 40, max: 50 },
-            { range: '50-59%', min: 50, max: 60 },
-            { range: '60-69%', min: 60, max: 70 },
-            { range: '70-79%', min: 70, max: 80 },
-            { range: '80-89%', min: 80, max: 90 },
-            { range: '90-100%', min: 90, max: 101 },
-        ];
+                // 5. Attendance vs absence scatter (all students)
+                query<{ avg_attendance_rate: number; avg_absence_rate: number; risk_level: string }>(
+                    `SELECT avg_attendance_rate, avg_absence_rate, risk_level FROM student_analytics`
+                ),
 
-        const absenceDistribution = absenceRanges.map(range => ({
-            range: range.range,
-            count: students?.filter(s => s.avg_absence_rate >= range.min && s.avg_absence_rate < range.max).length || 0
-        }));
+                // 6. GPA vs absence scatter
+                query<{ gpa: number; avg_absence_rate: number; risk_level: string; faculty: string }>(
+                    `SELECT gpa, avg_absence_rate, risk_level, COALESCE(faculty,'ไม่ระบุ') AS faculty
+                     FROM student_analytics WHERE gpa IS NOT NULL`
+                ),
 
-        // 3. Top courses with most high-absence students (for Bar Chart)
-        const topAbsentCourses = (courses || [])
-            .filter(c => c.students_high_absence > 0 && !c.has_no_checks)
-            .slice(0, 10)
-            .map(c => ({
-                course: `${c.course_code}-${c.section}`,
-                courseName: c.course_name || '',
-                instructor: c.instructor || '',
-                studyCode: c.study_code,
-                highAbsence: c.students_high_absence,
-                totalStudents: c.total_students,
-                avgAttendance: Math.round(c.avg_attendance_rate * 10) / 10
-            }));
+                // 7. Top 15 courses by high-absence students
+                query(
+                    `SELECT course_code, course_name, section, study_code, instructor,
+                            total_students, students_high_absence, avg_attendance_rate, has_no_checks
+                     FROM course_analytics
+                     WHERE students_high_absence > 0 AND NOT has_no_checks
+                     ORDER BY students_high_absence DESC
+                     LIMIT 15`
+                ),
 
-        // 4. Attendance vs Absence scatter data
-        const attendanceScatter = (students || []).map(s => ({
-            attendance: Math.round(s.avg_attendance_rate * 10) / 10,
-            absence: Math.round(s.avg_absence_rate * 10) / 10,
-            risk: s.risk_level
-        }));
+                // 8. Summary stats
+                query<{ total: string; avg_absence: number; avg_attendance: number }>(
+                    `SELECT
+                        COUNT(*)::text AS total,
+                        ROUND(AVG(avg_absence_rate)::numeric, 1)    AS avg_absence,
+                        ROUND(AVG(avg_attendance_rate)::numeric, 1) AS avg_attendance
+                     FROM student_analytics`
+                ),
+            ]);
 
-        // 5. Faculty Risk Distribution (NEW)
-        const facultyMap = new Map<string, { total: number; critical: number; monitor: number; followUp: number; normal: number }>();
-        (students || []).forEach(s => {
-            const faculty = s.faculty || 'ไม่ระบุ';
-            if (!facultyMap.has(faculty)) {
-                facultyMap.set(faculty, { total: 0, critical: 0, monitor: 0, followUp: 0, normal: 0 });
-            }
-            const entry = facultyMap.get(faculty)!;
-            entry.total++;
-            if (s.risk_level === 'critical') entry.critical++;
-            else if (s.risk_level === 'monitor') entry.monitor++;
-            else if (s.risk_level === 'follow_up') entry.followUp++;
-            else entry.normal++;
+        // ── Build response ──────────────────────────────────────────────
+
+        const colorMap: Record<string, string> = {
+            critical: '#dc2626', monitor: '#ea580c', follow_up: '#2563eb', normal: '#16a34a',
+        };
+        const labelMap: Record<string, string> = {
+            critical: 'วิกฤต', monitor: 'เฝ้าระวัง', follow_up: 'ติดตาม', normal: 'ปกติ',
+        };
+        const riskDistribution = ['critical', 'monitor', 'follow_up', 'normal'].map(level => {
+            const row = riskRes.rows.find(r => r.risk_level === level);
+            return { name: labelMap[level], value: row ? parseInt(row.cnt) : 0, color: colorMap[level] };
         });
-        const facultyDistribution = Array.from(facultyMap.entries())
-            .map(([faculty, data]) => ({ faculty, ...data }))
+
+        // Faculty distribution map
+        type FacultyEntry = { faculty: string; total: number; critical: number; monitor: number; followUp: number; normal: number };
+        const facultyMap = new Map<string, FacultyEntry>();
+        for (const r of facultyRes.rows) {
+            if (!facultyMap.has(r.faculty)) facultyMap.set(r.faculty, { faculty: r.faculty, total: 0, critical: 0, monitor: 0, followUp: 0, normal: 0 });
+            const entry = facultyMap.get(r.faculty)!;
+            const cnt = parseInt(r.cnt);
+            entry.total += cnt;
+            if (r.risk_level === 'critical')  entry.critical  += cnt;
+            if (r.risk_level === 'monitor')   entry.monitor   += cnt;
+            if (r.risk_level === 'follow_up') entry.followUp  += cnt;
+            if (r.risk_level === 'normal')    entry.normal    += cnt;
+        }
+        const facultyDistribution = Array.from(facultyMap.values())
             .sort((a, b) => (b.critical + b.monitor) - (a.critical + a.monitor));
 
-        // 6. GPA vs Absence Rate Scatter (NEW)
-        const gpaAbsenceScatter = (students || [])
-            .filter(s => s.gpa !== null && s.gpa !== undefined)
-            .map(s => ({
-                gpa: s.gpa,
-                absence: Math.round(s.avg_absence_rate * 10) / 10,
-                risk: s.risk_level,
-                faculty: s.faculty || 'ไม่ระบุ'
-            }));
-
-        // 7. Year Level Distribution (NEW)
-        const yearMap = new Map<number, { total: number; critical: number; monitor: number; followUp: number; normal: number }>();
-        (students || []).forEach(s => {
-            const year = s.year_level || 0;
-            if (!yearMap.has(year)) {
-                yearMap.set(year, { total: 0, critical: 0, monitor: 0, followUp: 0, normal: 0 });
-            }
-            const entry = yearMap.get(year)!;
-            entry.total++;
-            if (s.risk_level === 'critical') entry.critical++;
-            else if (s.risk_level === 'monitor') entry.monitor++;
-            else if (s.risk_level === 'follow_up') entry.followUp++;
-            else entry.normal++;
-        });
+        // Year distribution map
+        const yearMap = new Map<number, Record<string, number>>();
+        for (const r of yearRes.rows) {
+            if (!yearMap.has(r.year_level)) yearMap.set(r.year_level, { total: 0, critical: 0, monitor: 0, followUp: 0, normal: 0 });
+            const entry = yearMap.get(r.year_level)!;
+            const cnt = parseInt(r.cnt);
+            entry.total += cnt;
+            if (r.risk_level === 'critical')  entry.critical  += cnt;
+            if (r.risk_level === 'monitor')   entry.monitor   += cnt;
+            if (r.risk_level === 'follow_up') entry.followUp  += cnt;
+            if (r.risk_level === 'normal')    entry.normal    += cnt;
+        }
         const yearDistribution = Array.from(yearMap.entries())
-            .filter(([year]) => year > 0)
-            .map(([year, data]) => ({ year: `ปี ${year}`, ...data }))
-            .sort((a, b) => parseInt(a.year.replace('ปี ', '')) - parseInt(b.year.replace('ปี ', '')));
+            .sort(([a], [b]) => a - b)
+            .map(([year, d]) => ({ year: `ปี ${year}`, ...d }));
 
+        // Absence histogram
+        const rangeOrder = ['0-9%','10-19%','20-29%','30-39%','40-49%','50-59%','60-69%','70-79%','80-89%','90-100%'];
+        const absenceDistribution = rangeOrder.map(range => {
+            const row = absenceDistRes.rows.find(r => r.range === range);
+            return { range, count: row ? parseInt(row.cnt) : 0 };
+        });
+
+        const attendanceScatter = scatterRes.rows.map(s => ({
+            attendance: Math.round(s.avg_attendance_rate * 10) / 10,
+            absence:    Math.round(s.avg_absence_rate    * 10) / 10,
+            risk:       s.risk_level,
+        }));
+
+        const gpaAbsenceScatter = gpaRes.rows.map(s => ({
+            gpa:     s.gpa,
+            absence: Math.round(s.avg_absence_rate * 10) / 10,
+            risk:    s.risk_level,
+            faculty: s.faculty,
+        }));
+
+        const topAbsentCourses = topCoursesRes.rows.map(c => ({
+            course:       `${c.course_code}-${c.section}`,
+            courseName:   c.course_name || '',
+            instructor:   c.instructor  || '',
+            studyCode:    c.study_code,
+            highAbsence:  c.students_high_absence,
+            totalStudents: c.total_students,
+            avgAttendance: Math.round(c.avg_attendance_rate * 10) / 10,
+        }));
+
+        const sumRow = summaryRes.rows[0];
         return NextResponse.json({
             riskDistribution,
             absenceDistribution,
@@ -123,10 +165,10 @@ export async function GET(request: NextRequest) {
             gpaAbsenceScatter,
             yearDistribution,
             summary: {
-                totalStudents: students?.length || 0,
-                avgAbsenceRate: students ? Math.round(students.reduce((s, st) => s + st.avg_absence_rate, 0) / students.length * 10) / 10 : 0,
-                avgAttendanceRate: students ? Math.round(students.reduce((s, st) => s + st.avg_attendance_rate, 0) / students.length * 10) / 10 : 0,
-            }
+                totalStudents:    parseInt(sumRow.total),
+                avgAbsenceRate:   sumRow.avg_absence,
+                avgAttendanceRate: sumRow.avg_attendance,
+            },
         });
     } catch (error) {
         console.error('Error fetching chart data:', error);

@@ -1,69 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
-    const riskLevel = searchParams.get('riskLevel');
-    const minAbsenceRate = searchParams.get('minAbsenceRate');
-    const faculty = searchParams.get('faculty');
-    const yearLevel = searchParams.get('yearLevel');
-    const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const page = parseInt(searchParams.get('page') || '1');
-    const offset = (page - 1) * limit;
+    const riskLevel    = searchParams.get('riskLevel');
+    const faculty      = searchParams.get('faculty');
+    const yearLevel    = searchParams.get('yearLevel');
+    const advisor      = searchParams.get('advisor');
+    const search       = searchParams.get('search')?.trim();
+    const limit        = Math.min(parseInt(searchParams.get('limit') || '50'), 200);
+    const page         = Math.max(parseInt(searchParams.get('page')  || '1'), 1);
+    const offset       = (page - 1) * limit;
 
     try {
-        let query = supabase
-            .from('student_analytics')
-            .select('*', { count: 'exact' })
-            .order('avg_absence_rate', { ascending: false });
+        const conditions: string[] = [];
+        const params: unknown[]    = [];
 
-        // Apply filters
         if (riskLevel && riskLevel !== 'all') {
-            query = query.eq('risk_level', riskLevel);
+            params.push(riskLevel);
+            conditions.push(`risk_level = $${params.length}`);
         }
-
-        if (minAbsenceRate) {
-            query = query.gte('avg_absence_rate', parseFloat(minAbsenceRate));
-        }
-
         if (faculty && faculty !== 'all') {
-            query = query.eq('faculty', faculty);
+            params.push(faculty);
+            conditions.push(`faculty = $${params.length}`);
         }
-
         if (yearLevel && yearLevel !== 'all') {
-            query = query.eq('year_level', parseInt(yearLevel));
+            params.push(parseInt(yearLevel));
+            conditions.push(`year_level = $${params.length}`);
         }
-
-        const advisor = searchParams.get('advisor');
         if (advisor && advisor !== 'all') {
-            query = query.eq('advisor_name', advisor);
+            params.push(advisor);
+            conditions.push(`advisor_name = $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            const idx = params.length;
+            conditions.push(`(student_code ILIKE $${idx} OR student_name ILIKE $${idx})`);
         }
 
-        if (search && search.trim()) {
-            query = query.or(`student_code.ilike.%${search.trim()}%,student_name.ilike.%${search.trim()}%`);
-        }
+        const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        // Apply pagination
-        query = query.range(offset, offset + limit - 1);
+        params.push(limit);
+        const limitIdx = params.length;
+        params.push(offset);
+        const offsetIdx = params.length;
 
-        const { data, error, count } = await query;
-
-        if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json({
-            data,
-            total: count || 0,
-            page,
-            limit,
-            totalPages: Math.ceil((count || 0) / limit)
-        });
-    } catch (error) {
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
+        // COUNT(*) OVER() returns total in one round-trip (no separate count query needed)
+        const { rows } = await query(
+            `SELECT *, COUNT(*) OVER()::int AS total_count
+             FROM student_analytics
+             ${where}
+             ORDER BY avg_absence_rate DESC
+             LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+            params
         );
+
+        const total = rows.length > 0 ? (rows[0].total_count as number) : 0;
+        const data  = rows.map(({ total_count: _tc, ...rest }) => rest);
+
+        return NextResponse.json({ data, total, page, limit, totalPages: Math.ceil(total / limit) });
+    } catch (error) {
+        console.error('Error fetching students:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { query } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,63 +13,42 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify student exists in student_analytics
-        const { data: student, error: studentError } = await supabase
-            .from('student_analytics')
-            .select('student_code, student_name, faculty, year_level')
-            .eq('student_code', studentCode.trim())
-            .single();
+        // Verify student exists
+        const { rows: studentRows } = await query(
+            `SELECT student_code, student_name, faculty, year_level
+             FROM student_analytics
+             WHERE student_code = $1`,
+            [studentCode.trim()]
+        );
 
-        if (studentError || !student) {
+        if (studentRows.length === 0) {
             return NextResponse.json(
                 { error: 'ไม่พบรหัสนักศึกษานี้ในระบบ กรุณาตรวจสอบอีกครั้ง' },
                 { status: 404 }
             );
         }
 
-        // Check if LINE UUID already exists → update, else insert
-        const { data: existing } = await supabase
-            .from('line_students')
-            .select('id')
-            .eq('line_user_id', lineUserId)
-            .single();
+        // Upsert LINE mapping (INSERT … ON CONFLICT DO UPDATE)
+        await query(
+            `INSERT INTO line_students (line_user_id, student_code, display_name, picture_url)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (line_user_id) DO UPDATE SET
+                 student_code = EXCLUDED.student_code,
+                 display_name = EXCLUDED.display_name,
+                 picture_url  = EXCLUDED.picture_url,
+                 updated_at   = NOW()`,
+            [lineUserId, studentCode.trim(), displayName || null, pictureUrl || null]
+        );
 
-        if (existing) {
-            // Update existing mapping
-            const { error: updateError } = await supabase
-                .from('line_students')
-                .update({
-                    student_code: studentCode.trim(),
-                    display_name: displayName || null,
-                    picture_url: pictureUrl || null,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('line_user_id', lineUserId);
-
-            if (updateError) throw updateError;
-        } else {
-            // Insert new mapping
-            const { error: insertError } = await supabase
-                .from('line_students')
-                .insert({
-                    line_user_id: lineUserId,
-                    student_code: studentCode.trim(),
-                    display_name: displayName || null,
-                    picture_url: pictureUrl || null,
-                });
-
-            if (insertError) throw insertError;
-        }
-
+        const student = studentRows[0];
         return NextResponse.json({
             success: true,
             student: {
                 student_code: student.student_code,
                 student_name: student.student_name,
-                faculty: student.faculty,
-                year_level: student.year_level,
+                faculty:      student.faculty,
+                year_level:   student.year_level,
             },
-            isUpdate: !!existing,
         });
     } catch (error) {
         console.error('Error registering LINE student:', error);
