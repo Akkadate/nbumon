@@ -227,7 +227,7 @@ export default function CoursesPage() {
                                                             />
                                                         </div>
                                                         <span className="text-sm text-gray-900">
-                                                            {course.avg_attendance_rate.toFixed(1)}%
+                                                            {Number(course.avg_attendance_rate).toFixed(1)}%
                                                         </span>
                                                     </div>
                                                 </td>

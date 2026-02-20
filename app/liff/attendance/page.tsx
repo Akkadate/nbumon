@@ -175,7 +175,7 @@ function AttendanceContent() {
 
                         <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="bg-white/10 rounded-xl py-2">
-                                <p className="text-xl font-bold">{student.avg_attendance_rate.toFixed(0)}%</p>
+                                <p className="text-xl font-bold">{Number(student.avg_attendance_rate).toFixed(0)}%</p>
                                 <p className="text-[10px] text-green-200">เข้าเรียน</p>
                             </div>
                             <div className="bg-white/10 rounded-xl py-2">
@@ -192,7 +192,7 @@ function AttendanceContent() {
                             <p className="text-[11px] text-green-200 mt-3">
                                 🏫 {student.faculty}
                                 {student.year_level && ` • ปี ${student.year_level}`}
-                                {student.gpa != null && ` • GPA ${student.gpa.toFixed(2)}`}
+                                {student.gpa != null && ` • GPA ${Number(student.gpa).toFixed(2)}`}
                             </p>
                         )}
                     </div>
@@ -243,7 +243,7 @@ function AttendanceContent() {
                                         </div>
                                         <div className="text-right flex-shrink-0">
                                             <p className={`text-lg font-bold ${course.absence_rate >= 40 ? 'text-red-600' : course.absence_rate >= 20 ? 'text-orange-600' : 'text-gray-700'}`}>
-                                                {course.absence_rate.toFixed(0)}%
+                                                {Number(course.absence_rate).toFixed(0)}%
                                             </p>
                                             <p className="text-[10px] text-gray-400">ขาด</p>
                                         </div>
@@ -287,7 +287,7 @@ function AttendanceContent() {
                                             {/* Progress Bar */}
                                             <div className="mb-3">
                                                 <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                                                    <span>เข้าเรียน {course.attendance_rate.toFixed(0)}%</span>
+                                                    <span>เข้าเรียน {Number(course.attendance_rate).toFixed(0)}%</span>
                                                     <span>{course.present_count}/{course.total_sessions} ครั้ง</span>
                                                 </div>
                                                 <div className="w-full h-2 bg-gray-200 rounded-full">

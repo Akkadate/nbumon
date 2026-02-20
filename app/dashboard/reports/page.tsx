@@ -138,8 +138,8 @@ export default function ReportsPage() {
                     s.student_code,
                     s.student_name || '-',
                     s.faculty || '-',
-                    s.gpa != null ? s.gpa.toFixed(2) : '-',
-                    `${s.avg_absence_rate.toFixed(1)}%`,
+                    s.gpa != null ? Number(s.gpa).toFixed(2) : '-',
+                    `${Number(s.avg_absence_rate).toFixed(1)}%`,
                     getRiskLabel(s.risk_level),
                     String(s.courses_at_risk)
                 ]);

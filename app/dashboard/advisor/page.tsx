@@ -196,10 +196,10 @@ export default function AdvisorDashboardPage() {
                 s.student_name || '-',
                 s.faculty || '-',
                 s.year_level || '-',
-                s.gpa != null ? s.gpa.toFixed(2) : '-',
+                s.gpa != null ? Number(s.gpa).toFixed(2) : '-',
                 s.total_courses,
-                s.avg_attendance_rate.toFixed(1),
-                s.avg_absence_rate.toFixed(1),
+                Number(s.avg_attendance_rate).toFixed(1),
+                Number(s.avg_absence_rate).toFixed(1),
                 s.courses_at_risk,
                 getRiskLabelThai(s.risk_level),
                 s.advisor_name || '-',
@@ -386,10 +386,10 @@ export default function AdvisorDashboardPage() {
                                                     <td className="px-6 py-3 font-mono font-medium text-gray-900">{student.student_code}</td>
                                                     <td className="px-6 py-3 text-gray-700">{student.student_name || '-'}</td>
                                                     <td className={`px-6 py-3 font-medium ${student.gpa != null && student.gpa < 2.0 ? 'text-red-600' : 'text-gray-700'}`}>
-                                                        {student.gpa != null ? student.gpa.toFixed(2) : '-'}
+                                                        {student.gpa != null ? Number(student.gpa).toFixed(2) : '-'}
                                                     </td>
                                                     <td className="px-6 py-3 text-center font-bold text-gray-700">
-                                                        {student.avg_absence_rate.toFixed(1)}%
+                                                        {Number(student.avg_absence_rate).toFixed(1)}%
                                                     </td>
                                                     <td className="px-6 py-3 text-center">
                                                         <span className={`px-2 py-1 rounded text-xs font-semibold ${student.courses_at_risk > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -564,7 +564,7 @@ export default function AdvisorDashboardPage() {
                                                     <div className="bg-gray-50 rounded-lg px-2 py-1.5 text-center">
                                                         <div className="text-[10px] text-gray-600">% ขาด</div>
                                                         <div className={`text-sm font-bold ${course.absence_rate >= 40 ? 'text-red-600' : course.absence_rate >= 20 ? 'text-orange-600' : 'text-gray-700'}`}>
-                                                            {course.absence_rate.toFixed(1)}%
+                                                            {Number(course.absence_rate).toFixed(1)}%
                                                         </div>
                                                     </div>
                                                 </div>

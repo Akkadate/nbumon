@@ -213,7 +213,7 @@ export default function FacultyReportPage() {
                             course.course_name || '-',
                             `${course.section} (${course.study_code === 'C' ? 'ทฤษฎี' : 'ปฏิบัติ'})`,
                             `${course.absent_count}/${course.total_sessions}`,
-                            `${course.absence_rate.toFixed(1)}%`,
+                            `${Number(course.absence_rate).toFixed(1)}%`,
                         ]);
                     });
                 });
@@ -284,14 +284,14 @@ export default function FacultyReportPage() {
                             student.student_code,
                             student.student_name || '-',
                             String(student.year_level || '-'),
-                            student.gpa != null ? student.gpa.toFixed(2) : '-',
+                            student.gpa != null ? Number(student.gpa).toFixed(2) : '-',
                             riskLabel,
                             course.course_code,
                             course.course_name || '-',
                             course.section,
                             course.study_code === 'C' ? 'ทฤษฎี' : 'ปฏิบัติ',
                             `${course.absent_count}/${course.total_sessions}`,
-                            `${course.absence_rate.toFixed(1)}%`,
+                            `${Number(course.absence_rate).toFixed(1)}%`,
                         ]);
                     });
                 });
@@ -457,7 +457,7 @@ export default function FacultyReportPage() {
                                                                             <span className="text-xs text-gray-400 w-12 flex-shrink-0">ปี {student.year_level || '-'}</span>
                                                                             {student.gpa != null && (
                                                                                 <span className={`text-xs font-medium w-14 flex-shrink-0 ${student.gpa < 2.0 ? 'text-red-600' : 'text-gray-500'}`}>
-                                                                                    GPA {student.gpa.toFixed(2)}
+                                                                                    GPA {Number(student.gpa).toFixed(2)}
                                                                                 </span>
                                                                             )}
                                                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex-shrink-0 ${risk.bg}`}>
@@ -497,7 +497,7 @@ export default function FacultyReportPage() {
                                                                                                     <td className="py-1.5 text-gray-500 max-w-[120px] truncate">{course.instructor || '-'}</td>
                                                                                                     <td className="py-1.5 text-center font-medium text-gray-700">{course.absent_count}/{course.total_sessions}</td>
                                                                                                     <td className={`py-1.5 text-right font-bold ${course.absence_rate >= 40 ? 'text-red-600' : course.absence_rate >= 20 ? 'text-orange-600' : 'text-blue-600'}`}>
-                                                                                                        {course.absence_rate.toFixed(1)}%
+                                                                                                        {Number(course.absence_rate).toFixed(1)}%
                                                                                                     </td>
                                                                                                     <td className="py-1.5 pl-3">
                                                                                                         <div className="flex gap-0.5 flex-wrap max-w-[200px]">

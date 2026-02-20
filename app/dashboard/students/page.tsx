@@ -181,10 +181,10 @@ export default function StudentsPage() {
                 s.student_name || '-',
                 s.faculty || '-',
                 s.year_level || '-',
-                s.gpa != null ? s.gpa.toFixed(2) : '-',
+                s.gpa != null ? Number(s.gpa).toFixed(2) : '-',
                 s.total_courses,
-                s.avg_attendance_rate.toFixed(1),
-                s.avg_absence_rate.toFixed(1),
+                Number(s.avg_attendance_rate).toFixed(1),
+                Number(s.avg_absence_rate).toFixed(1),
                 s.courses_at_risk,
                 getRiskLabelThai(s.risk_level),
                 s.advisor_name || '-',
@@ -343,9 +343,9 @@ export default function StudentsPage() {
                                                 <td className="px-4 py-2.5 text-gray-600 max-w-[150px] truncate">{student.faculty || '-'}</td>
                                                 <td className="px-4 py-2.5 text-gray-600">{student.year_level || '-'}</td>
                                                 <td className={`px-4 py-2.5 font-medium ${student.gpa != null && student.gpa < 2.0 ? 'text-red-600' : 'text-gray-700'}`}>
-                                                    {student.gpa != null ? student.gpa.toFixed(2) : '-'}
+                                                    {student.gpa != null ? Number(student.gpa).toFixed(2) : '-'}
                                                 </td>
-                                                <td className="px-4 py-2.5 font-semibold text-red-600">{student.avg_absence_rate.toFixed(1)}%</td>
+                                                <td className="px-4 py-2.5 font-semibold text-red-600">{Number(student.avg_absence_rate).toFixed(1)}%</td>
                                                 <td className="px-4 py-2.5">
                                                     <button
                                                         onClick={() => handleClickCourses(student)}
@@ -467,7 +467,7 @@ export default function StudentsPage() {
                                                 modalStudent.risk_level === 'follow_up' ? 'bg-blue-400 text-white' :
                                                     'bg-emerald-400 text-white'
                                         }`}>
-                                        ภาพรวม: {getRiskLabelThai(modalStudent.risk_level)} ({modalStudent.avg_absence_rate.toFixed(1)}%)
+                                        ภาพรวม: {getRiskLabelThai(modalStudent.risk_level)} ({Number(modalStudent.avg_absence_rate).toFixed(1)}%)
                                     </span>
                                 </div>
                             </div>
@@ -558,7 +558,7 @@ export default function StudentsPage() {
                                                     <div className="bg-gray-50 rounded-lg px-2 py-1.5 text-center">
                                                         <div className="text-[10px] text-gray-600">% ขาด</div>
                                                         <div className={`text-sm font-bold ${course.absence_rate >= 40 ? 'text-red-600' : course.absence_rate >= 20 ? 'text-orange-600' : 'text-gray-700'}`}>
-                                                            {course.absence_rate.toFixed(1)}%
+                                                            {Number(course.absence_rate).toFixed(1)}%
                                                         </div>
                                                     </div>
                                                 </div>

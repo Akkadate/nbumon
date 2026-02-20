@@ -206,7 +206,7 @@ export default function ConsecutiveAbsencePage() {
                                             {student.year_level && <span>ปี {student.year_level}</span>}
                                             {student.gpa != null && (
                                                 <span className={student.gpa < 2.0 ? 'text-red-500 font-medium' : ''}>
-                                                    GPA {student.gpa.toFixed(2)}
+                                                    GPA {Number(student.gpa).toFixed(2)}
                                                 </span>
                                             )}
                                         </div>
@@ -275,7 +275,7 @@ export default function ConsecutiveAbsencePage() {
 
                                                     {/* Stats */}
                                                     <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                                                        <span>อัตราขาดเรียน: <span className="font-semibold text-red-600">{course.absence_rate.toFixed(1)}%</span></span>
+                                                        <span>อัตราขาดเรียน: <span className="font-semibold text-red-600">{Number(course.absence_rate).toFixed(1)}%</span></span>
                                                         <span>เช็คชื่อทั้งหมด: {course.total_sessions} ครั้ง</span>
                                                     </div>
                                                 </div>
