@@ -1,4 +1,12 @@
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, QueryResult, QueryResultRow, types } from 'pg';
+
+// pg returns NUMERIC/DECIMAL as strings by default to preserve precision.
+// Our values (gpa, attendance_rate, absence_rate, etc.) are small decimals
+// that fit safely in a JS float, so we parse them as numbers here globally.
+// OID 1700 = NUMERIC/DECIMAL, OID 701 = FLOAT8, OID 700 = FLOAT4
+types.setTypeParser(1700, (val: string) => parseFloat(val));
+types.setTypeParser(701,  (val: string) => parseFloat(val));
+types.setTypeParser(700,  (val: string) => parseFloat(val));
 
 /**
  * PostgreSQL connection pool for University server.
