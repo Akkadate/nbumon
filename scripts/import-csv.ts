@@ -237,7 +237,7 @@ async function importCSV() {
         // 1. Clear existing data atomically
         console.log('Clearing existing data...');
         await client.query(
-            'TRUNCATE TABLE attendance_records, student_analytics, course_analytics RESTART IDENTITY'
+            'TRUNCATE TABLE attendance_records, student_analytics, course_analytics'
         );
         console.log('✓ Cleared\n');
 
