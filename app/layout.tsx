@@ -22,6 +22,16 @@ export default function RootLayout({
     <html lang="th">
       <body className={sarabun.className}>
         {children}
+        <footer className="bg-white border-t border-gray-100 py-3 px-6">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 text-center sm:text-left">
+            <p className="text-xs text-gray-400">
+              สำนักเทคโนโลยีสารสนเทศ มหาวิทยาลัยนอร์ทกรุงเทพ
+            </p>
+            <p className="text-xs text-gray-300">
+              Student Monitoring System &copy; {new Date().getFullYear()}
+            </p>
+          </div>
+        </footer>
       </body>
     </html>
   );
