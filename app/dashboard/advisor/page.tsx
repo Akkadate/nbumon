@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Home, Search, Users, Shield, TrendingDown, BookOpen, Download, AlertTriangle, Monitor, UserCheck, ChevronRight, ChevronsLeft, ChevronLeft, ChevronsRight } from 'lucide-react';
 import { getRiskLabelThai, getRiskColor, getStudyTypeLabel } from '@/lib/analytics';
@@ -94,8 +94,24 @@ export default function AdvisorDashboardPage() {
     const [modalCourses, setModalCourses] = useState<StudentCourse[]>([]);
     const [modalLoading, setModalLoading] = useState(false);
 
+    // Advisor searchable dropdown
+    const [advisorInputValue, setAdvisorInputValue] = useState('');
+    const [advisorDropdownOpen, setAdvisorDropdownOpen] = useState(false);
+    const advisorRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         fetchAdvisors();
+    }, []);
+
+    // Close advisor dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (advisorRef.current && !advisorRef.current.contains(e.target as Node)) {
+                setAdvisorDropdownOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     useEffect(() => {
@@ -251,24 +267,93 @@ export default function AdvisorDashboardPage() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                         เลือกชื่ออาจารย์ที่ปรึกษา
+                        {advisors.length > 0 && (
+                            <span className="ml-2 text-xs text-gray-400 font-normal">({advisors.length} คน)</span>
+                        )}
                     </label>
-                    <div className="relative">
-                        <select
-                            value={selectedAdvisor}
-                            onChange={(e) => {
-                                setSelectedAdvisor(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="w-full max-w-lg block pl-3 pr-10 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg border"
-                        >
-                            <option value="">-- กรุณาเลือก --</option>
-                            {advisors.map((adv) => (
-                                <option key={adv} value={adv}>{adv}</option>
-                            ))}
-                        </select>
-                        {loadingAdvisors && (
-                            <div className="absolute right-3 top-3">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+                    <div className="relative max-w-lg" ref={advisorRef}>
+                        {/* Input */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder={loadingAdvisors ? 'กำลังโหลด...' : 'พิมพ์ค้นหาชื่ออาจารย์...'}
+                                value={advisorInputValue}
+                                onChange={(e) => {
+                                    setAdvisorInputValue(e.target.value);
+                                    // Clear selection when user edits
+                                    if (selectedAdvisor) {
+                                        setSelectedAdvisor('');
+                                        setCurrentPage(1);
+                                    }
+                                    setAdvisorDropdownOpen(true);
+                                }}
+                                onFocus={() => setAdvisorDropdownOpen(true)}
+                                disabled={loadingAdvisors}
+                                className="w-full pl-9 pr-9 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                            />
+                            {loadingAdvisors ? (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+                                </div>
+                            ) : (advisorInputValue || selectedAdvisor) ? (
+                                <button
+                                    onClick={() => {
+                                        setSelectedAdvisor('');
+                                        setAdvisorInputValue('');
+                                        setAdvisorDropdownOpen(false);
+                                        setCurrentPage(1);
+                                    }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="ล้างการเลือก"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            ) : null}
+                        </div>
+
+                        {/* Selected indicator */}
+                        {selectedAdvisor && (
+                            <p className="mt-1.5 text-xs text-indigo-600 font-medium">
+                                ✓ เลือก: {selectedAdvisor}
+                            </p>
+                        )}
+
+                        {/* Dropdown list */}
+                        {advisorDropdownOpen && !loadingAdvisors && (
+                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                {(() => {
+                                    const filtered = advisors.filter(adv =>
+                                        adv.toLowerCase().includes(advisorInputValue.toLowerCase())
+                                    );
+                                    if (filtered.length === 0) {
+                                        return (
+                                            <div className="px-4 py-3 text-sm text-gray-500">
+                                                ไม่พบอาจารย์ที่ตรงกับ &quot;{advisorInputValue}&quot;
+                                            </div>
+                                        );
+                                    }
+                                    return filtered.map(adv => (
+                                        <button
+                                            type="button"
+                                            key={adv}
+                                            onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+                                            onClick={() => {
+                                                setSelectedAdvisor(adv);
+                                                setAdvisorInputValue(adv);
+                                                setAdvisorDropdownOpen(false);
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                                                adv === selectedAdvisor
+                                                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                                    : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700'
+                                            }`}
+                                        >
+                                            {adv}
+                                        </button>
+                                    ));
+                                })()}
                             </div>
                         )}
                     </div>
@@ -540,6 +625,11 @@ export default function AdvisorDashboardPage() {
                                                         <div className="text-sm text-gray-600 ml-6">
                                                             กลุ่มเรียน: <span className="font-medium">{course.section}</span>
                                                         </div>
+                                                        {course.instructor && (
+                                                            <div className="text-sm text-gray-500 ml-6">
+                                                                ผู้สอน: <span className="font-medium text-gray-700">{course.instructor}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
