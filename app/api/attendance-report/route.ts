@@ -149,8 +149,15 @@ export async function GET(request: NextRequest) {
             };
         }).sort((a, b) => a.faculty.localeCompare(b.faculty, 'th') || a.course_code.localeCompare(b.course_code));
 
-        const overview  = overviewRes.rows;
-        const faculties = overview.map((o) => o.faculty as string);
+        const overview = overviewRes.rows.map(o => ({
+            faculty: o.faculty as string,
+            courseCount: o.course_count as number,
+            avgRate: Number(o.avg_rate),
+            trendsUp: o.trends_up as number,
+            trendsDown: o.trends_down as number,
+            trendsStable: o.trends_stable as number,
+        }));
+        const faculties = overview.map((o) => o.faculty);
 
         return NextResponse.json({
             faculties,

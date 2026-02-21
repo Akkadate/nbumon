@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NBU Student Monitoring — ระบบดูแลการเรียนของนักศึกษา
 
-## Getting Started
+> **URL**: [nbumon.northbkk.ac.th](http://nbumon.northbkk.ac.th)
+> **GitHub**: [Akkadate/studentcare](https://github.com/Akkadate/studentcare) (branch: `main`)
+> **LIFF**: [liff.line.me/2009129078-N9OyKHXq](https://liff.line.me/2009129078-N9OyKHXq)
 
-First, run the development server:
+ระบบตรวจสอบและวิเคราะห์การเข้าเรียนของนักศึกษา มหาวิทยาลัยนอร์ทกรุงเทพ สร้างด้วย **Next.js 15** + **PostgreSQL** (direct connection)
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Database | PostgreSQL (University Server — direct `pg` connection) |
+| Hosting | University Server (PM2 + Nginx) — port 3001 |
+| LINE Integration | LIFF SDK `@line/liff` |
+| Charts | Recharts |
+| PDF Export | jsPDF + jspdf-autotable |
+| Icons | lucide-react |
+| Thai Font | Sarabun (base64 embedded for PDF) |
+
+---
+
+## Quick Start (Local Development)
+
+### 1. Prerequisites
+
+- Node.js 18+
+- PostgreSQL (local หรือ remote)
+
+### 2. Clone & Install
+
+```bash
+git clone https://github.com/Akkadate/studentcare.git
+cd studentcare
+npm install
+```
+
+### 3. Environment Variables
+
+สร้างไฟล์ `.env.local`:
+
+```env
+DATABASE_URL=postgresql://student_app:your_password@localhost:5432/student_monitoring
+DATABASE_SSL=false
+NEXT_PUBLIC_LIFF_ID=2009129078-N9OyKHXq
+```
+
+### 4. Setup Database
+
+```bash
+# สร้างตารางและ indexes
+psql -U student_app -d student_monitoring -f scripts/schema.sql
+psql -U student_app -d student_monitoring -f scripts/setup-db-functions.sql
+```
+
+### 5. Import Data
+
+```bash
+# นำเข้าข้อมูลจาก CSV
+npm run import:csv -- studentcheckv2.csv
+```
+
+### 6. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิด [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Features
 
-## Learn More
+### Dashboard Pages
 
-To learn more about Next.js, take a look at the following resources:
+| หน้า | คำอธิบาย |
+| --- | --- |
+| `/dashboard` | Main dashboard — stats cards, risk breakdown |
+| `/dashboard/students` | รายชื่อนักศึกษา — pagination, search, filter, popup รายวิชา |
+| `/dashboard/courses` | รายวิชา — analytics, filter |
+| `/dashboard/charts` | กราฟ Recharts (Pie, Bar, Histogram, Line) |
+| `/dashboard/consecutive-absence` | นักศึกษาขาดเรียนติดต่อกัน ≥3 ครั้ง |
+| `/dashboard/advisor` | Advisor Dashboard — filter by advisor |
+| `/dashboard/faculty-report` | รายงานแยกตามคณะ → อาจารย์ที่ปรึกษา |
+| `/dashboard/attendance-report` | Export ข้อมูลการเช็คชื่อ |
+| `/dashboard/reports` | สร้าง PDF รายงาน |
+| `/dashboard/manual` | คู่มือการใช้งาน |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### LINE LIFF
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- นักศึกษาผูก LINE ID ↔ รหัสนักศึกษา
+- ดูข้อมูลการเข้าเรียนผ่าน LINE (attendance dots, % ขาด, GPA)
+- เปลี่ยนรหัสนักศึกษาได้
 
-## Deploy on Vercel
+### Risk Levels
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Level | Thai | เกณฑ์ |
+| --- | --- | --- |
+| `critical` | วิกฤต | ขาดเฉลี่ย ≥ 40% |
+| `monitor` | เฝ้าระวัง | ขาดเฉลี่ย 20–39% |
+| `follow_up` | ติดตาม | ขาดเฉลี่ย 10–19% |
+| `normal` | ปกติ | ขาดเฉลี่ย < 10% |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Deployment (University Server)
+
+ดูรายละเอียดใน [UNIVERSITY_DEPLOYMENT.md](UNIVERSITY_DEPLOYMENT.md)
+
+```bash
+# Update & Redeploy
+cd /var/www/nbumon
+git pull origin main
+npm run build
+pm2 restart nbumon
+```
+
+---
+
+## Scripts
+
+| คำสั่ง | คำอธิบาย |
+| --- | --- |
+| `npm run dev` | Start development server |
+| `npm run build` | Build production |
+| `npm run start` | Start production server |
+| `npm run import:csv -- [file]` | Import CSV data into PostgreSQL |
+
+---
+
+## Documentation
+
+| ไฟล์ | คำอธิบาย |
+| --- | --- |
+| `PROJECT_STATUS.md` | Architecture, schema, API reference (main source of truth) |
+| `UNIVERSITY_DEPLOYMENT.md` | คู่มือติดตั้งบน University Server |
+| `DEV_HANDOFF.md` | Development handoff notes |
+| `DATA_SPECIFICATION.md` | CSV column definitions |

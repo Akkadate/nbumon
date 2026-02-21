@@ -1,8 +1,8 @@
 # Student Monitoring System — Project Status & Architecture
 
-> **Last Updated**: 2026-02-20 (Phase 5 Partial Complete)
+> **Last Updated**: 2026-02-21
 > **Repo**: [github.com/Akkadate/studentcare](https://github.com/Akkadate/studentcare) (branch: `main`)
-> **Production**: [nbucare.northbkk.ac.th](https://nbucare.northbkk.ac.th) (Vercel, custom domain)
+> **Production**: [nbumon.northbkk.ac.th](https://nbumon.northbkk.ac.th) (University Server — PM2 + Nginx, port 3001)
 > **LIFF URL**: [liff.line.me/2009129078-N9OyKHXq](https://liff.line.me/2009129078-N9OyKHXq)
 
 ---
@@ -11,11 +11,11 @@
 
 | Layer | Technology |
 | --- | --- |
-| Framework | Next.js 16 (App Router, Turbopack) |
+| Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
 | Styling | Tailwind CSS v4 |
-| Database | Supabase (PostgreSQL) |
-| Hosting | Vercel |
+| Database | PostgreSQL (University Server — direct `pg` connection) |
+| Hosting | University Server (PM2 + Nginx) — port 3001 |
 | LINE Integration | LIFF SDK `@line/liff` |
 | Charts | Recharts |
 | PDF Export | jsPDF + jspdf-autotable |
@@ -25,16 +25,16 @@
 ## Environment Variables
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://vblqkkrifonxvxsbcfcv.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_LKerHxtgUgRlD9gd62gtpw_0gwHSdfS
+DATABASE_URL=postgresql://student_app:your_password@localhost:5432/student_monitoring
+DATABASE_SSL=false
 NEXT_PUBLIC_LIFF_ID=2009129078-N9OyKHXq
 ```
 
-> ⚠️ ตัวแปรเหล่านี้ต้องตั้งทั้งใน `.env.local` (local) และ Vercel Dashboard (production)
+> ตั้งใน `.env.local` (local) และบน Server (ไม่มี Vercel อีกต่อไป)
 
 ---
 
-## Database Schema (Supabase)
+## Database Schema (PostgreSQL)
 
 ### Table: `attendance_records`
 
@@ -91,6 +91,7 @@ NEXT_PUBLIC_LIFF_ID=2009129078-N9OyKHXq
 | `year_level` | int | ชั้นปี |
 | `advisor_name` | text | อาจารย์ที่ปรึกษา |
 | `gpa` | float | GPA |
+| `trailing_absences` | int | จำนวน A ต่อเนื่องจากท้าย (pre-computed) |
 
 ### Table: `course_analytics`
 
@@ -113,7 +114,7 @@ NEXT_PUBLIC_LIFF_ID=2009129078-N9OyKHXq
 | `faculty` | text | คณะ (สำหรับ filter) |
 | `acad_year` | int | ปีการศึกษา |
 | `semester` | int | เทอม |
-| `trend` | text | `stable` / `improving` / `declining` |
+| `trend` | text | `up` / `down` / `stable` |
 
 ### Table: `line_students`
 
@@ -193,22 +194,21 @@ student-monitoring/
 │           └── unlink/route.ts          # POST: remove LINE mapping
 │
 ├── lib/
-│   ├── supabase.ts                      # Supabase client (anon key)
+│   ├── db.ts                            # PostgreSQL connection pool (pg)
+│   ├── supabase.ts                      # (เก็บไว้ reference — ไม่ได้ใช้แล้ว)
+│   ├── db-utils.ts                      # (เก็บไว้ reference — ไม่ได้ใช้แล้ว)
 │   ├── types.ts                         # TypeScript interfaces
 │   ├── analytics.ts                     # Risk calc, attendance parsing, Thai labels
 │   ├── liff.ts                          # LIFF SDK wrapper (lazy init, getProfile)
 │   └── sarabun-font.ts                  # Base64 font for PDF export
 │
-├── migrations/
-│   ├── phase3-add-columns.sql           # Phase 3: add enhanced columns
-│   ├── liff-line-students.sql           # Phase 4: LINE mapping table
-│   ├── add_faculty_to_course_analytics.sql
-│   └── add_trend_to_course_analytics.sql
+├── migrations/                          # (Supabase-era migrations — reference only)
 │
-├── scripts/                             # Data import/ETL scripts
-│   ├── import-csv.ts                    # CSV import script
+├── scripts/
+│   ├── import-csv.ts                    # CSV import → PostgreSQL (bulk insert)
 │   ├── recalculate-analytics.ts         # Recalculate analytics
-│   └── schema.sql                       # Database schema definition
+│   ├── schema.sql                       # Database schema definition
+│   └── setup-db-functions.sql           # PostgreSQL functions (trailing absences)
 │
 └── doc-reference/                       # Reference materials
 ```
@@ -243,7 +243,7 @@ Dashboard summary statistics. Supports `?advisor=` param. Returns: `totalStudent
 
 ### `GET /api/consecutive-absence?min=3`
 
-Students with ≥N trailing consecutive absences. Returns all attendance entries for dot display.
+Students with ≥N trailing consecutive absences. Uses `trailing_absences` stored column for performance.
 
 ### `GET /api/charts`
 
@@ -259,7 +259,7 @@ Advisor list with student stats.
 
 ### `GET /api/attendance-report`
 
-Attendance export data (all records, filterable).
+Attendance overview per course — session-by-session rates, trends, faculty aggregates. Supports `limit`, `offset`, `faculty`, `countP`, `countL`, `countS`.
 
 ### `GET /api/faculty-report`
 
@@ -277,7 +277,7 @@ Faculty-level analytics and student breakdown.
 
 ### Phase 1-2: Core System
 
-- [x] CSV data import → Supabase
+- [x] CSV data import → PostgreSQL
 - [x] Attendance parsing (P,A,L,S)
 - [x] Risk level calculation
 - [x] Dashboard with stats cards
@@ -307,10 +307,20 @@ Faculty-level analytics and student breakdown.
 
 - [x] Advisor dashboard (`/dashboard/advisor`) — filter by advisor, stats, export
 - [x] Faculty report (`/dashboard/faculty-report`) — faculty-level analytics
-- [x] Attendance report export (`/dashboard/attendance-report`) — exportable table
+- [x] Attendance report export (`/dashboard/attendance-report`) — exportable table with session trend chart
 - [x] PDF report generation (`/dashboard/reports`) — per student with Sarabun font
 - [x] User manual updated (`/dashboard/manual`) — all features documented
-- [x] Trend column on course_analytics (stable/improving/declining)
+- [x] Trend column on course_analytics (up/down/stable)
+
+### Phase 5b: Migration & Performance
+
+- [x] **Migrated from Supabase → University PostgreSQL** (direct `pg` connection)
+- [x] `lib/db.ts` — Pool with pg type parsers (NUMERIC → JS number)
+- [x] All 12 API routes rewritten to use raw SQL via `query()`
+- [x] `scripts/setup-db-functions.sql` — PostgreSQL functions for consecutive absence
+- [x] `trailing_absences` stored column pre-computed on import (index scan instead of runtime function)
+- [x] Performance: `/api/stats` ~50ms vs ~6s (Supabase)
+- [x] Deployment: PM2 + Nginx on university server, port 3001
 
 ### Not Yet Implemented (Phase 6+)
 
@@ -325,12 +335,16 @@ Faculty-level analytics and student breakdown.
 
 ## Important Notes for Future Development
 
-1. **Supabase uses anon key** — API ใช้ `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public), RLS policy แบบ allow all. ถ้าจะเพิ่ม authentication ต้องเปลี่ยน RLS
-2. **Data import** — ข้อมูลนำเข้าจาก CSV ด้วย scripts ใน `scripts/` folder, ไม่มี auto-sync
-3. **LIFF re-linking** — เมื่อ student กด "เปลี่ยนรหัส" ระบบจะ DELETE mapping แล้ว redirect ไปลงทะเบียนใหม่
-4. **Pagination** — Students API ใช้ `{ count: 'exact' }` ใน Supabase select, frontend ใช้ page-based (ไม่ใช่ cursor)
-5. **class_check_raw** format — `"P,A,P,L,S,P,A"` comma-separated uppercase letters
-6. **Consecutive absence** — วิเคราะห์จาก trailing entries ของ `class_check_raw` (นับ A ต่อเนื่องจากท้ายสุด)
-7. **No authentication** — ระบบไม่มี login, ใครก็เข้า dashboard ได้ (LIFF ใช้ LINE profile เป็น identity)
-8. **autoTable import** — ต้องใช้ `import autoTable from 'jspdf-autotable'` แล้วเรียก `autoTable(doc, {...})` ห้ามใช้ `doc.autoTable()`
-9. **Recharts types** — ใช้ `any` type สำหรับ Tooltip formatter เพื่อหลีกเลี่ยง TS errors
+1. **PostgreSQL direct connection** — ใช้ `lib/db.ts` (Pool จาก `pg`). `lib/supabase.ts` และ `lib/db-utils.ts` เก็บไว้ reference แต่ไม่ได้ใช้แล้ว
+2. **pg NUMERIC type** — `pg` คืน DECIMAL/NUMERIC เป็น string โดย default. แก้แล้วด้วย `types.setTypeParser()` ใน `lib/db.ts` + ใช้ `Number(val).toFixed(n)` ใน frontend ทุกจุด
+3. **Data import** — ข้อมูลนำเข้าจาก CSV ด้วย `npm run import:csv -- file.csv`, ไม่มี auto-sync
+4. **trailing_absences** — คำนวณและเก็บไว้ใน `student_analytics` ตอน import. ใช้ index scan แทนการรัน PL/pgSQL function real-time
+5. **LIFF re-linking** — เมื่อ student กด "เปลี่ยนรหัส" ระบบจะ DELETE mapping แล้ว redirect ไปลงทะเบียนใหม่
+6. **Pagination** — Students API ใช้ `COUNT(*) OVER()` window function, frontend ใช้ page-based
+7. **class_check_raw** format — `"P,A,P,L,S,P,A"` comma-separated uppercase letters
+8. **Consecutive absence** — นับ A ต่อเนื่องจากท้าย `class_check_raw`, เก็บไว้ใน `trailing_absences`
+9. **No authentication** — ระบบไม่มี login, ใครก็เข้า dashboard ได้ (LIFF ใช้ LINE profile เป็น identity)
+10. **autoTable import** — ต้องใช้ `import autoTable from 'jspdf-autotable'` แล้วเรียก `autoTable(doc, {...})` ห้ามใช้ `doc.autoTable()`
+11. **Recharts types** — ใช้ `any` type สำหรับ Tooltip formatter เพื่อหลีกเลี่ยง TS errors
+12. **API snake_case → camelCase** — SQL rows คืน snake_case แต่ frontend interfaces ใช้ camelCase, ต้อง map ใน API route (ดู `attendance-report/route.ts` เป็นตัวอย่าง)
+13. **Port** — App รันบน port **3001** (port 3000 ถูกใช้โดย `award-reg`)

@@ -1,25 +1,26 @@
 # Student Monitoring System - Development Handoff
 
-> **Date**: 2026-02-20
-> **Latest Status**: Phase 5 In Progress (Advisor Dashboard, Faculty/Attendance Reports)
+> **Date**: 2026-02-21
+> **Latest Status**: Phase 5b Complete (PostgreSQL migration + bug fixes)
 
 ## 1. Project State Overview
 
-The **Student Monitoring System** is currently stable with **Phase 4 fully completed** and **Phase 5 partially completed**.
+The **Student Monitoring System** is production-stable. Database has been migrated from Supabase to the University's own PostgreSQL server for dramatically better performance.
 
 - **Core System**: Full dashboard, student/course lists, risk analytics ✅
 - **Reports**: PDF per student, Faculty report, Attendance export ✅
 - **LIFF**: LINE integration (register, view attendance, re-link) ✅
 - **Advisor Dashboard**: Filter by advisor, export advisor reports ✅
 - **Faculty Report**: Faculty-level analytics and export ✅
-- **Attendance Report**: Exportable attendance data table ✅
-- **Deployment**: Vercel + custom domain `nbucare.northbkk.ac.th` ✅
+- **Attendance Report**: Session-by-session trend charts, exportable ✅
+- **Database**: Migrated to University PostgreSQL (`pg` direct connection) ✅
+- **Deployment**: PM2 + Nginx on university server, `nbumon.northbkk.ac.th`, port 3001 ✅
 
 ## 2. Features Completed
 
 ### Phase 1-2: Core System
 
-- [x] CSV data import → Supabase
+- [x] CSV data import → PostgreSQL
 - [x] Attendance parsing (P=Present, A=Absent, L=Late, S=Leave)
 - [x] Risk level calculation (4 tiers)
 - [x] Dashboard with stats cards
@@ -46,14 +47,25 @@ The **Student Monitoring System** is currently stable with **Phase 4 fully compl
 - [x] Debounced server-side search
 - [x] LINE LIFF integration (register, view attendance, re-link)
 
-### Phase 5: Reports & Advisor (Partially Complete)
+### Phase 5: Reports & Advisor
 
 - [x] **Advisor Dashboard** (`/dashboard/advisor`) — filter by advisor, student list, stats
 - [x] **Faculty Report** (`/dashboard/faculty-report`) — faculty-level analytics
-- [x] **Attendance Report Export** (`/dashboard/attendance-report`) — exportable table
+- [x] **Attendance Report Export** (`/dashboard/attendance-report`) — session trend charts, exportable
 - [x] **PDF Reports** (`/dashboard/reports`) — PDF per student with Sarabun font
 - [x] **User Manual** (`/dashboard/manual`) — updated with latest features
-- [x] **Trend column** on course_analytics (stable/improving/declining)
+- [x] **Trend column** on course_analytics (up/down/stable)
+
+### Phase 5b: PostgreSQL Migration & Performance
+
+- [x] `lib/db.ts` — PostgreSQL Pool (pg) with type parsers (NUMERIC/DECIMAL → JS number)
+- [x] All 12 API routes rewritten to use direct SQL via `query()`
+- [x] `scripts/setup-db-functions.sql` — DB functions for trailing absence calculation
+- [x] `trailing_absences` column pre-computed on import (fast index scan)
+- [x] `scripts/import-csv.ts` rewritten with `unnest()` bulk insert (fast)
+- [x] **Bug fix**: `pg` returns NUMERIC as string → all `.toFixed()` calls wrapped with `Number()`
+- [x] **Bug fix**: attendance-report API returns camelCase fields to match frontend interfaces
+- [x] Performance: `/api/stats` ~50ms (was ~6s with Supabase)
 
 ## 3. Pages & API Routes (Current)
 
@@ -68,7 +80,7 @@ The **Student Monitoring System** is currently stable with **Phase 4 fully compl
 | `/dashboard/consecutive-absence` | Students with ≥3 trailing absences |
 | `/dashboard/reports` | PDF report generation |
 | `/dashboard/advisor` | Advisor dashboard (filter by advisor) |
-| `/dashboard/attendance-report` | Attendance data export |
+| `/dashboard/attendance-report` | Session-by-session trend charts + export |
 | `/dashboard/faculty-report` | Faculty-specific reports |
 | `/dashboard/manual` | User manual |
 
@@ -91,7 +103,7 @@ The **Student Monitoring System** is currently stable with **Phase 4 fully compl
 | `/api/charts` | GET | Chart data aggregation |
 | `/api/consecutive-absence` | GET | Students with ≥N trailing absences (`?min=3`) |
 | `/api/advisors` | GET | Advisor list with stats |
-| `/api/attendance-report` | GET | Attendance export data |
+| `/api/attendance-report` | GET | Attendance overview (limit, offset, faculty, countP, countL, countS) |
 | `/api/faculty-report` | GET | Faculty analytics |
 | `/api/liff/register` | POST | Link LINE UUID ↔ student_code |
 | `/api/liff/profile` | GET | Student profile by LINE UUID (`?lineUserId=xxx`) |
@@ -106,74 +118,69 @@ The **Student Monitoring System** is currently stable with **Phase 4 fully compl
 - [ ] **Authentication/Login System** — protect dashboard (currently open-access)
 - [ ] **Custom Favicon** — replace default Next.js icon
 
-## 5. Critical Fix: Supabase 1000-Row Limit (2026-02-20)
+## 5. Critical Bug Fixes Applied
 
-Supabase (PostgREST) returns at most **1000 rows per request** by default. With `attendance_records` at 15,910+ rows and `student_analytics` at 3,000+ rows, several API routes were returning incomplete data.
+### pg NUMERIC type returns as string (2026-02-21)
 
-**Root cause**: Queries without `.range()` silently truncate at 1000 rows.
+`pg` library returns PostgreSQL DECIMAL/NUMERIC columns as JavaScript strings by default. Calling `.toFixed()` on a string throws `TypeError: e.gpa.toFixed is not a function`.
 
-**Fix**: Added `lib/db-utils.ts` with `fetchAllRows()` helper that paginates through all results automatically.
+**Fix applied in two layers:**
 
-### Routes fixed
+1. `lib/db.ts` — `types.setTypeParser()` for OID 1700 (NUMERIC), 701 (FLOAT8), 700 (FLOAT4) → `parseFloat()`
+2. All frontend pages — wrapped every `.toFixed()` on DB-sourced fields with `Number(val).toFixed(n)` (defensive)
 
-| Route | Table affected | Impact before fix |
-| --- | --- | --- |
-| `/api/stats` | `attendance_records` | Consecutive absence count incorrect |
-| `/api/consecutive-absence` | `attendance_records` | Missing 93%+ of student data |
-| `/api/charts` | `student_analytics` | Charts missing students beyond 1000 |
-| `/api/advisors` | `student_analytics` | Some advisors missing from dropdown |
-| `/api/faculty-report` | `student_analytics` + `attendance_records` | Missing students + course data |
-| `/api/attendance-report` | `attendance_records` (inner query) | Session data incomplete per course |
+Files modified: `students/page.tsx`, `advisor/page.tsx`, `faculty-report/page.tsx`, `consecutive-absence/page.tsx`, `reports/page.tsx`, `courses/page.tsx`, `liff/attendance/page.tsx` (27 replacements total).
 
-### fetchAllRows usage pattern
+### attendance-report NaN% bug (2026-02-21)
 
-```typescript
-import { fetchAllRows } from '@/lib/db-utils';
+API returned raw PostgreSQL snake_case rows (`avg_rate`, `course_count`, etc.) but frontend interface expected camelCase (`avgRate`, `courseCount`, etc.). Accessing undefined fields caused `NaN%` in the average attendance card.
 
-const data = await fetchAllRows<MyType>(
-  (from, to) =>
-    supabase
-      .from('attendance_records')
-      .select('col1, col2')
-      .eq('faculty', 'X')
-      .range(from, to)
-);
-```
-
-The factory function is called once per 1000-row page. All filters and ordering must be inside the factory.
+**Fix**: Map `overviewRes.rows` to camelCase in `app/api/attendance-report/route.ts`.
 
 ## 6. Key Documentation
 
 - **`PROJECT_STATUS.md`**: Detailed system architecture, schema, API reference (main source of truth)
+- **`UNIVERSITY_DEPLOYMENT.md`**: คู่มือติดตั้งบน University Server (PM2, Nginx, PostgreSQL)
 - **`DATA_SPECIFICATION.md`**: CSV column definitions and data format
-- **`VERCEL_DEPLOYMENT.md`**: Step-by-step production deployment guide
-- **`PHASE3_DEVELOPMENT_PLAN.md`**: Original Phase 3 planning document (for reference)
 
-## 6. Technical Reminders
+## 7. Technical Reminders
 
-- **Supabase**: Uses `NEXT_PUBLIC_SUPABASE_ANON_KEY` with RLS allowing public reads. Update RLS if adding authentication.
-- **Data Sync**: No auto-sync — import manually via `npm run import:csv` (script: `scripts/import-csv.ts`)
+- **PostgreSQL direct**: Uses `lib/db.ts` Pool. `lib/supabase.ts` / `lib/db-utils.ts` kept for reference, not used.
+- **pg type parsers**: OID 1700/701/700 → parseFloat. Always use `Number(val)` before `.toFixed()` on DB values.
+- **Data Sync**: No auto-sync — import manually via `npm run import:csv -- file.csv`
+- **trailing_absences**: Pre-computed stored column in `student_analytics`. Updated on each CSV import. Enables fast `WHERE trailing_absences >= N` index scan.
 - **LIFF Re-linking**: Student changes code → DELETE old mapping → redirect to register form
-- **Pagination**: Server-side page-based (not cursor), uses `{ count: 'exact' }` in Supabase select
+- **Pagination**: Window function `COUNT(*) OVER()::int` in SQL; frontend is page-based
 - **class_check_raw Format**: `"P,A,P,L,S,P,A"` comma-separated uppercase letters
-- **Consecutive Absence**: Counted from trailing entries of `class_check_raw` (count A backwards until non-A)
 - **No Authentication**: Dashboard is open-access; LIFF uses LINE profile as mobile identity
 - **Font**: Sarabun Thai font embedded as base64 in `lib/sarabun-font.ts` for PDF generation
 - **autoTable import**: Use `import autoTable from 'jspdf-autotable'` then `autoTable(doc, {...})` — NOT `doc.autoTable()`
 - **Recharts types**: Use `any` type for Tooltip formatter to avoid TS errors
+- **API snake_case → camelCase**: SQL returns snake_case; map to camelCase in API route before `NextResponse.json()`
+- **Port**: App runs on **3001** (port 3000 used by `award-reg` app on same server)
 
-## 7. Environment Variables
+## 8. Environment Variables
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://vblqkkrifonxvxsbcfcv.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
+DATABASE_URL=postgresql://student_app:your_secure_password@localhost:5432/student_monitoring
+DATABASE_SSL=false
 NEXT_PUBLIC_LIFF_ID=2009129078-N9OyKHXq
 ```
 
-Set in `.env.local` (local) and Vercel Dashboard (production).
+Set in `.env.local` on the server.
 
-## 8. Deployment
+## 9. Deployment
 
 - **GitHub**: [Akkadate/studentcare](https://github.com/Akkadate/studentcare) (branch: `main`)
-- **Production**: [nbucare.northbkk.ac.th](https://nbucare.northbkk.ac.th) (Vercel, auto-deploy on push)
+- **Production**: [nbumon.northbkk.ac.th](https://nbumon.northbkk.ac.th) (University Server, port 3001)
 - **LIFF**: [liff.line.me/2009129078-N9OyKHXq](https://liff.line.me/2009129078-N9OyKHXq)
+
+Update & redeploy:
+
+```bash
+cd /var/www/nbumon
+git pull origin main
+npm install
+npm run build
+pm2 restart nbumon
+```

@@ -104,8 +104,8 @@ npm run build
 ## ขั้นตอนที่ 5: รันด้วย PM2
 
 ```bash
-# Start app
-pm2 start npm --name "nbumon" -- start
+# Start app (port 3001 — port 3000 used by award-reg)
+PORT=3001 pm2 start npm --name "nbumon" -- start
 
 # ตั้งให้ start อัตโนมัติเมื่อ server reboot
 pm2 startup
@@ -144,7 +144,7 @@ server {
     ssl_certificate_key /etc/ssl/private/nbumon.key;
 
     location / {
-        proxy_pass         http://localhost:3000;
+        proxy_pass         http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection 'upgrade';
@@ -168,7 +168,7 @@ sudo systemctl reload nginx
 
 ```bash
 # ทดสอบ API
-curl http://localhost:3000/api/stats
+curl http://localhost:3001/api/stats
 
 # ดู logs
 pm2 logs nbumon --lines 50
@@ -274,12 +274,12 @@ sudo systemctl reload postgresql
 psql -U student_app -d student_monitoring -f scripts/setup-db-functions.sql
 ```
 
-### Port 3000 ถูกใช้งานอยู่
+### Port ถูกใช้งานอยู่
 
 ```bash
-# เปลี่ยน port ใน package.json หรือตั้ง PORT env
+# ระบบนี้รันบน port 3001 (port 3000 ถูกใช้โดย award-reg)
 PORT=3001 pm2 start npm --name "nbumon" -- start
-# แล้วแก้ Nginx proxy_pass ให้ตรงกัน
+# ตรวจสอบ Nginx proxy_pass ให้ตรงกับ port ที่ใช้
 ```
 
 ---
